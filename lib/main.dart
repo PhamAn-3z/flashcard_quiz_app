@@ -1,6 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flashcard_quiz_app/core/database/db_connection.dart'; // Nối file kết nối vào
 
-void main() {
+void main() async {
+//-----------------
+  // BẮT BUỘC: Đảm bảo Flutter khởi tạo xong các tính năng cốt lõi
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Chạy thử lệnh kiểm tra kết nối lên mây
+  DbConnection db = DbConnection();
+  await db.testCloudConnection();
+  //---------------
   runApp(const MyApp());
 }
 
