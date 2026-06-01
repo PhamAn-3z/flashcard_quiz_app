@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../utils/constants.dart';
 import 'home_screen.dart';
+import 'profile_screen.dart';
 
 class MainNavigation extends StatefulWidget {
   const MainNavigation({super.key});
@@ -16,7 +17,7 @@ class _MainNavigationState extends State<MainNavigation> {
     const HomeScreen(),
     const Center(child: Text('Flashcard Screen')), // Placeholder
     const Center(child: Text('Quiz Screen')),      // Placeholder
-    const Center(child: Text('Profile Screen')),   // Placeholder
+    const ProfileScreen(),
   ];
 
   @override

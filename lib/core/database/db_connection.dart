@@ -1,21 +1,16 @@
 import 'package:dio/dio.dart';
+import '../../utils/constants.dart';
 
 class DbConnection {
-  // 1. Dán Project URL bạn vừa copy vào đây (bỏ đuôi /rest/v1/ đi nhé)
-  static const String baseUrl = "https://xdekwfqnhrohydgejhdk.supabase.co";
-
-  // 2. Dán đoạn API Key (sb_publishable_...) bạn vừa copy vào đây
-  static const String apiKey = "sb_publishable_Mk288brWkRYpm14YH2xAOw_sAb6qcyW";
-
   final Dio _dio = Dio(
     BaseOptions(
-      baseUrl: baseUrl,
+      baseUrl: ApiConstants.supabaseUrl,
       connectTimeout: const Duration(seconds: 10),
       receiveTimeout: const Duration(seconds: 10),
       // Nhét API Key vào phần headers để Supabase nhận diện đây là app của bạn
       headers: {
-        'apikey': apiKey,
-        'Authorization': 'Bearer $apiKey',
+        'apikey': ApiConstants.supabaseKey,
+        'Authorization': 'Bearer ${ApiConstants.supabaseKey}',
         'Content-Type': 'application/json',
       },
     ),
@@ -25,8 +20,7 @@ class DbConnection {
   Future<bool> testCloudConnection() async {
     try {
       // SỬA CHỖ NÀY: Thêm dấu gạch chéo '/' vào cuối để gọi thẳng vào root API URL của Data API
-      // Hoặc gọi cụ thể vào cổng kiểm tra của Supabase
-      final response = await _dio.get('$baseUrl/rest/v1/');
+      final response = await _dio.get('${ApiConstants.supabaseUrl}/rest/v1/');
 
       if (response.statusCode == 200) {
         print("🎉 KẾT NỐI ĐẾN SUPABASE CLOUD THÀNH CÔNG RỒI BẠN ƠI!");

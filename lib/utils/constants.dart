@@ -13,6 +13,9 @@ class AppColors {
 }
 
 class ApiConstants {
-  // Replace with actual backend URL
+  static const String supabaseUrl = "https://xdekwfqnhrohydgejhdk.supabase.co";
+  static const String supabaseKey = "sb_publishable_Mk288brWkRYpm14YH2xAOw_sAb6qcyW";
+  
+  // URL cho Backend cũ (nếu còn dùng)
   static const String baseUrl = 'http://10.0.2.2:8080/api/v1'; 
 }
