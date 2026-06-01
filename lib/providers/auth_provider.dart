@@ -30,12 +30,15 @@ class AuthProvider with ChangeNotifier {
   Future<void> _loadStoredData() async {
     final prefs = await SharedPreferences.getInstance();
     _token = prefs.getString('token');
-    // In a real app we'd likely verify the token with the backend 
-    // and fetch the user profile here. 
     if (_token != null) {
       _dio.options.headers['Authorization'] = 'Bearer $_token';
-      // MOCK DATA for now since backend might not be fully ready
-      await _fetchMockProfile();
+      try {
+        await _fetchProfile();
+      } catch (e) {
+        _token = null;
+        await prefs.remove('token');
+        _dio.options.headers.remove('Authorization');
+      }
     }
     notifyListeners();
   }
@@ -45,17 +48,26 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      // MOCK API CALL
-      await Future.delayed(const Duration(seconds: 1));
+      final response = await _dio.post(
+        '/auth/login',
+        data: {'email': email, 'password': password},
+      );
       
-      // Assume success for demonstration
-      _token = "mock_token_123";
+      final data = response.data;
+      if (data != null && data['data'] != null && data['data']['token'] != null) {
+        _token = data['data']['token'];
+      } else if (data != null && data['token'] != null) {
+         _token = data['token'];
+      } else {
+        throw Exception("Invalid token response");
+      }
+
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('token', _token!);
       
       _dio.options.headers['Authorization'] = 'Bearer $_token';
       
-      await _fetchMockProfile();
+      await _fetchProfile();
       _isLoading = false;
       notifyListeners();
       return true;
@@ -79,8 +91,14 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      // MOCK API CALL
-      await Future.delayed(const Duration(seconds: 2));
+      await _dio.post(
+        '/auth/register',
+        data: {
+          'email': email,
+          'password': password,
+          'full_name': fullName,
+        },
+      );
       _isLoading = false;
       notifyListeners();
       return true;
@@ -101,22 +119,35 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> _fetchMockProfile() async {
-    _user = User(
-      id: '1',
-      username: 'student_1',
-      email: 'student@example.com',
-      fullName: 'Nihongo Learner',
-      role: 'user',
-      isPremium: true,
-    );
-    _userStats = UserStats(
-      currentStreak: 5,
-      maxStreak: 12,
-      totalExp: 1540,
-      level: 4,
-      lastStudyDate: DateFormat('yyyy-MM-dd').format(DateTime.now()),
-    );
+  Future<void> _fetchProfile() async {
+    try {
+      final response = await _dio.get('/profile');
+      final data = response.data;
+      
+      final userData = (data['data'] != null) ? data['data'] : data;
+      
+      // Map API response to User model
+      // If the API doesn't return an id or username we assign fallbacks
+      _user = User(
+        id: (userData['id'] ?? userData['sub'] ?? '0').toString(),
+        username: userData['username'] ?? userData['email']?.split('@')[0] ?? 'user',
+        email: userData['email'] ?? '',
+        fullName: userData['full_name'] ?? userData['name'] ?? '',
+        role: userData['role'] ?? 'user',
+        isPremium: userData['is_premium'] == true,
+      );
+
+      // We still use mock stats for now unless API provides them
+      _userStats = UserStats(
+        currentStreak: userData['current_streak'] ?? 5,
+        maxStreak: userData['max_streak'] ?? 12,
+        totalExp: userData['total_exp'] ?? 1540,
+        level: userData['level'] ?? 4,
+        lastStudyDate: userData['last_study_date'] ?? DateFormat('yyyy-MM-dd').format(DateTime.now()),
+      );
+    } catch (e) {
+      rethrow;
+    }
   }
 
   // Method to increment EXP and update Streak
