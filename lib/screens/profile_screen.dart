@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../utils/constants.dart';
 import 'notification_settings_screen.dart';
+import 'membership_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -101,7 +102,12 @@ class ProfileScreen extends StatelessWidget {
                               child: const Text('PRO', style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 12)),
                             )
                           : null,
-                      onTap: () {},
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const MembershipScreen()),
+                        );
+                      },
                     ),
                   ]),
                   const SizedBox(height: 24),
