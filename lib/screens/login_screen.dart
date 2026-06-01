@@ -53,12 +53,12 @@ class _LoginScreenState extends State<LoginScreen> {
           Positioned(
             top: -100,
             right: -50,
-            child: _buildCircle(300, AppColors.primary.withOpacity(0.1)),
+            child: _buildCircle(300, AppColors.primary.withValues(alpha: 0.1)),
           ),
           Positioned(
             bottom: -50,
             left: -80,
-            child: _buildCircle(250, Colors.blue.withOpacity(0.05)),
+            child: _buildCircle(250, Colors.blue.withValues(alpha: 0.05)),
           ),
           
           SafeArea(
@@ -75,7 +75,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: AppColors.primary.withOpacity(0.1),
+                            color: AppColors.primary.withValues(alpha: 0.1),
                             blurRadius: 20,
                             offset: const Offset(0, 10),
                           ),
@@ -115,7 +115,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         borderRadius: BorderRadius.circular(32),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
+                            color: Colors.black.withValues(alpha: 0.05),
                             blurRadius: 30,
                             offset: const Offset(0, 15),
                           ),
@@ -195,7 +195,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                           borderRadius: BorderRadius.circular(16),
                                         ),
                                         elevation: 8,
-                                        shadowColor: AppColors.primary.withOpacity(0.4),
+                                        shadowColor: AppColors.primary.withValues(alpha: 0.4),
                                       ),
                                       child: const Text(
                                         'VÀO HỌC NGAY',
@@ -357,9 +357,9 @@ class _LoginScreenState extends State<LoginScreen> {
       padding: const EdgeInsets.all(12),
       margin: const EdgeInsets.only(bottom: 20),
       decoration: BoxDecoration(
-        color: AppColors.error.withOpacity(0.1),
+        color: AppColors.error.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.error.withOpacity(0.2)),
+        border: Border.all(color: AppColors.error.withValues(alpha: 0.2)),
       ),
       child: Row(
         children: [

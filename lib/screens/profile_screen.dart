@@ -65,7 +65,7 @@ class ProfileScreen extends StatelessWidget {
                     ),
                     Text(
                       user?.email ?? '',
-                      style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 13),
+                      style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 13),
                     ),
                   ],
                 ),
@@ -97,7 +97,7 @@ class ProfileScreen extends StatelessWidget {
                       trailing: user?.isPremium == true 
                           ? Container(
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                              decoration: BoxDecoration(color: Colors.amber.withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
+                              decoration: BoxDecoration(color: Colors.amber.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(20)),
                               child: const Text('PRO', style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 12)),
                             )
                           : null,
@@ -146,7 +146,7 @@ class ProfileScreen extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 20, offset: const Offset(0, 10)),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 20, offset: const Offset(0, 10)),
         ],
       ),
       child: Column(children: items),
@@ -158,7 +158,7 @@ class ProfileScreen extends StatelessWidget {
       contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
       leading: Container(
         padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+        decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
         child: Icon(icon, color: color, size: 22),
       ),
       title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),

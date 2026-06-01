@@ -48,29 +48,43 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
 
     try {
+      // --- CHẾ ĐỘ DEMO: Giả lập thành công ---
+      await Future.delayed(const Duration(seconds: 1));
+      _token = "mock_token_${DateTime.now().millisecondsSinceEpoch}";
+      
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('token', _token!);
+      _dio.options.headers['Authorization'] = 'Bearer $_token';
+      
+      // Khởi tạo user mẫu cho Demo
+      _user = User(
+        id: '1',
+        username: email.split('@')[0],
+        email: email,
+        fullName: 'Người dùng NihonGo',
+        role: 'user',
+        isPremium: true,
+      );
+      _userStats = UserStats(
+        currentStreak: 5,
+        maxStreak: 12,
+        totalExp: 1540,
+        level: 4,
+        lastStudyDate: DateFormat('yyyy-MM-dd').format(DateTime.now()),
+      );
+
+      _isLoading = false;
+      notifyListeners();
+      return true;
+
+      /* 
+      // CODE THẬT (Dùng khi bạn có Backend chạy ở port 8080):
       final response = await _dio.post(
         '/auth/login',
         data: {'email': email, 'password': password},
       );
-      
-      final data = response.data;
-      if (data != null && data['data'] != null && data['data']['token'] != null) {
-        _token = data['data']['token'];
-      } else if (data != null && data['token'] != null) {
-         _token = data['token'];
-      } else {
-        throw Exception("Invalid token response");
-      }
-
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('token', _token!);
-      
-      _dio.options.headers['Authorization'] = 'Bearer $_token';
-      
-      await _fetchProfile();
-      _isLoading = false;
-      notifyListeners();
-      return true;
+      ...
+      */
     } catch (e) {
       _isLoading = false;
       notifyListeners();
@@ -91,6 +105,15 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
 
     try {
+      // --- CHẾ ĐỘ DEMO: Giả lập đăng ký thành công ---
+      await Future.delayed(const Duration(milliseconds: 1500));
+      
+      _isLoading = false;
+      notifyListeners();
+      return true;
+
+      /*
+      // CODE THẬT (Dùng khi bạn có Backend):
       await _dio.post(
         '/auth/register',
         data: {
@@ -99,9 +122,8 @@ class AuthProvider with ChangeNotifier {
           'full_name': fullName,
         },
       );
-      _isLoading = false;
-      notifyListeners();
-      return true;
+      ...
+      */
     } catch (e) {
       _isLoading = false;
       notifyListeners();
