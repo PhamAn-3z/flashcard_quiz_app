@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../utils/constants.dart';
 import 'home_screen.dart';
 import 'profile_screen.dart';
+import 'deck_list_screen.dart';
 
 class MainNavigation extends StatefulWidget {
   const MainNavigation({super.key});
@@ -15,7 +16,7 @@ class _MainNavigationState extends State<MainNavigation> {
 
   final List<Widget> _screens = [
     const HomeScreen(),
-    const Center(child: Text('Flashcard Screen')), // Placeholder
+    const DeckListScreen(),
     const Center(child: Text('Quiz Screen')),      // Placeholder
     const ProfileScreen(),
   ];

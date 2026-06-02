@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import '../models/deck.dart';
+import '../models/flashcard.dart';
 import '../utils/constants.dart';
 
 class DeckProvider with ChangeNotifier {
@@ -16,21 +17,53 @@ class DeckProvider with ChangeNotifier {
   List<Deck> get decks => _decks;
   bool get isLoading => _isLoading;
 
+  DeckProvider() {
+    _loadMockDecks();
+  }
+
+  void _loadMockDecks() {
+    _decks = [
+      Deck(id: 1, name: 'Flashcard Kanji N5', description: 'Cơ bản', totalCards: 20),
+      Deck(id: 2, name: 'Flashcard Từ vựng N4', description: 'Trung cấp', totalCards: 50),
+      Deck(id: 3, name: 'Bộ thẻ N3', description: 'Nâng cao', totalCards: 15),
+    ];
+  }
+
+  List<Flashcard> getMockCardsForDeck(int deckId) {
+    return [
+      Flashcard(
+        id: '1',
+        kanji: '記憶',
+        hiragana: 'きおく',
+        hanViet: 'Ký ức',
+        meaning: 'Trí nhớ, ký ức',
+      ),
+      Flashcard(
+        id: '2',
+        kanji: '勉強',
+        hiragana: 'べんきょう',
+        hanViet: 'Miễn cưỡng',
+        meaning: 'Học tập',
+      ),
+      Flashcard(
+        id: '3',
+        kanji: '学校',
+        hiragana: 'がっこう',
+        hanViet: 'Học hiệu',
+        meaning: 'Trường học',
+      ),
+    ];
+  }
+
   Future<void> fetchDecks() async {
+    // Để nguyên logic fetch thật nhưng comment lại cho demo
+    /*
     _isLoading = true;
     notifyListeners();
-
     try {
       final response = await _dio.get('/decks');
-      final List<dynamic> data = response.data['data'] != null ? response.data['data'] : response.data;
-      
-      _decks = data.map((json) => Deck.fromJson(json)).toList();
-      _isLoading = false;
-      notifyListeners();
-    } catch (e) {
-      _isLoading = false;
-      notifyListeners();
-      // Xử lý lỗi nếu cần
-    }
+      ...
+    } catch (e) { ... }
+    */
   }
 }
