@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/deck_provider.dart';
 import '../utils/constants.dart';
 import 'home_screen.dart';
 import 'profile_screen.dart';
@@ -20,6 +22,15 @@ class _MainNavigationState extends State<MainNavigation> {
     const Center(child: Text('Quiz Screen')),      // Placeholder
     const ProfileScreen(),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    // Fetch data khi vào app
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<DeckProvider>().fetchDecks();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {

@@ -16,6 +16,17 @@ class ApiConstants {
   static const String supabaseUrl = "https://xdekwfqnhrohydgejhdk.supabase.co";
   static const String supabaseKey = "sb_publishable_Mk288brWkRYpm14YH2xAOw_sAb6qcyW";
   
-  // URL cho Backend cũ (nếu còn dùng)
+  // URL cho Backend
   static const String baseUrl = 'http://10.0.2.2:8080/api/v1'; 
+
+  // Auth Endpoints
+  static const String login = '$baseUrl/auth/login';
+  static const String register = '$baseUrl/auth/register';
+  static const String logout = '$baseUrl/auth/logout';
+
+  // User Endpoints
+  static const String profile = '$baseUrl/user/profile';
+
+  // Deck Endpoints
+  static const String decks = '$baseUrl/decks';
 }

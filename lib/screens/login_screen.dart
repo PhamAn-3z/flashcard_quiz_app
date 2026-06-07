@@ -213,38 +213,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     
                     const SizedBox(height: 32),
-                    
-                    // Social Logins (Visual enhancement)
-                    const Row(
-                      children: [
-                        Expanded(child: Divider()),
-                        Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 16),
-                          child: Text(
-                            "HOẶC TIẾP TỤC VỚI",
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                        ),
-                        Expanded(child: Divider()),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        _buildSocialButton(Icons.g_mobiledata, Colors.red),
-                        const SizedBox(width: 20),
-                        _buildSocialButton(Icons.apple, Colors.black),
-                        const SizedBox(width: 20),
-                        _buildSocialButton(Icons.facebook, Colors.blue.shade800),
-                      ],
-                    ),
-                    
-                    const SizedBox(height: 32),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -284,18 +252,6 @@ class _LoginScreenState extends State<LoginScreen> {
         color: color,
         shape: BoxShape.circle,
       ),
-    );
-  }
-
-  Widget _buildSocialButton(IconData icon, Color color) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.withOpacity(0.2)),
-      ),
-      child: Icon(icon, size: 32, color: color),
     );
   }
 
