@@ -11,10 +11,6 @@ import 'package:flashcard_quiz_app/utils/constants.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Test database connection
-  DbConnection db = DbConnection();
-  await db.testCloudConnection();
-
   runApp(
     MultiProvider(
       providers: [
