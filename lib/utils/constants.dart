@@ -17,7 +17,8 @@ class ApiConstants {
   static const String supabaseKey = "sb_publishable_Mk288brWkRYpm14YH2xAOw_sAb6qcyW";
   
   // URL cho Backend
-  static const String baseUrl = 'http://10.0.2.2:8080/api/v1'; 
+  static const String baseUrl = 'http://localhost:8080/api/v1';
+  // Chỉnh lại thành http://10.0.2.2:8080/api/v1 khi sài emulator
 
   // Auth Endpoints
   static const String login = '$baseUrl/auth/login';

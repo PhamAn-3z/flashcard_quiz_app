@@ -16,8 +16,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
   String _fullName = '';
   String _email = '';
   String _password = '';
-  String? _gender = 'Nam';
-  String? _phone;
   bool _isLoading = false;
   bool _obscurePassword = true;
 
@@ -33,8 +31,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
         email: _email,
         password: _password,
         fullName: _fullName,
-        gender: _gender,
-        phone: _phone,
       );
       
       setState(() => _isLoading = false);
@@ -167,18 +163,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             validator: (v) => v!.length < 6 ? 'Mật khẩu tối thiểu 6 ký tự' : null,
                             onSaved: (v) => _password = v!,
                           ),
-                          const SizedBox(height: 16),
-                          
-                          _buildModernDropdown(),
-                          const SizedBox(height: 16),
-                          
-                          _buildModernField(
-                            label: 'Số điện thoại (Tùy chọn)',
-                            hint: '0123 456 789',
-                            icon: Icons.phone_android_rounded,
-                            keyboardType: TextInputType.phone,
-                            onSaved: (v) => _phone = v,
-                          ),
                           const SizedBox(height: 32),
                           
                           _isLoading 
@@ -270,36 +254,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
           ),
           validator: validator,
           onSaved: onSaved,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildModernDropdown() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('Giới tính', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
-        const SizedBox(height: 6),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          decoration: BoxDecoration(
-            color: const Color(0xFFF1F5F9),
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButtonFormField<String>(
-              value: _gender,
-              decoration: const InputDecoration(border: InputBorder.none),
-              items: ['Nam', 'Nữ', 'Khác'].map((String value) {
-                return DropdownMenuItem<String>(
-                  value: value,
-                  child: Text(value, style: const TextStyle(fontSize: 14)),
-                );
-              }).toList(),
-              onChanged: (newValue) => setState(() => _gender = newValue),
-            ),
-          ),
         ),
       ],
     );
