@@ -8,6 +8,7 @@ import 'transaction_history_screen.dart';
 import 'help_guide_screen.dart';
 import 'about_screen.dart';
 import 'study_history_screen.dart';
+import 'edit_profile_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -51,10 +52,22 @@ class ProfileScreen extends StatelessWidget {
                             child: const Icon(Icons.person_rounded, size: 50, color: AppColors.primary),
                           ),
                         ),
+                        Positioned(
+                          right: 0,
+                          bottom: 0,
+                          child: GestureDetector(
+                            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const EditProfileScreen())),
+                            child: Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                              child: const Icon(Icons.edit_rounded, color: AppColors.primary, size: 16),
+                            ),
+                          ),
+                        ),
                         if (user?.isPremium == true)
                           Positioned(
-                            right: 0,
-                            bottom: 0,
+                            left: 0,
+                            top: 0,
                             child: Container(
                               padding: const EdgeInsets.all(6),
                               decoration: const BoxDecoration(color: AppColors.accent, shape: BoxShape.circle),
