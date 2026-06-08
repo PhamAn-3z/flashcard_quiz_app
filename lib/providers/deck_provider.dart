@@ -18,7 +18,7 @@ class DeckProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
 
   DeckProvider() {
-    _loadMockDecks();
+    fetchDecks();
   }
 
   void _loadMockDecks() {
@@ -62,16 +62,15 @@ class DeckProvider with ChangeNotifier {
       final response = await _dio.get('/decks');
       if (response.statusCode == 200) {
         final List<dynamic> data = response.data is List ? response.data : response.data['data'] ?? [];
-        _decks = data.map((item) => Deck(
-          id: item['id'] is String ? int.parse(item['id']) : item['id'],
-          name: item['name'] ?? 'No Name',
-          description: item['description'] ?? '',
-          totalCards: item['total_cards'] ?? 0,
-        )).toList();
+        _decks = data.map((item) => Deck.fromJson(item)).toList();
+
+        // Nếu API thành công nhưng mảng rỗng, vẫn load mock để giao diện đẹp (cho mục đích demo)
+        if (_decks.isEmpty) {
+          _loadMockDecks();
+        }
       }
     } catch (e) {
-      print('Error fetching decks: $e');
-      // Fallback to mock if API fails
+      debugPrint('Error fetching decks: $e');
       if (_decks.isEmpty) {
         _loadMockDecks();
       }

@@ -4,6 +4,10 @@ import '../providers/auth_provider.dart';
 import '../utils/constants.dart';
 import 'notification_settings_screen.dart';
 import 'membership_screen.dart';
+import 'transaction_history_screen.dart';
+import 'help_guide_screen.dart';
+import 'about_screen.dart';
+import 'study_history_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -61,12 +65,19 @@ class ProfileScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      user?.fullName ?? 'Học viên NihonGo',
+                      (user?.fullName != null && user!.fullName.isNotEmpty) 
+                          ? user.fullName 
+                          : 'Học viên NihonGo',
                       style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800),
                     ),
+                    if (user?.username != null)
+                      Text(
+                        '@${user!.username}',
+                        style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 14, fontWeight: FontWeight.w500),
+                      ),
                     Text(
                       user?.email ?? '',
-                      style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 13),
+                      style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 12),
                     ),
                   ],
                 ),
@@ -117,15 +128,39 @@ class ProfileScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
                   _buildModernMenu(context, [
-                    _menuItem(icon: Icons.history_rounded, color: Colors.teal, title: 'Lịch sử học tập', onTap: () {}),
-                    _menuItem(icon: Icons.help_outline_rounded, color: Colors.indigo, title: 'Hướng dẫn sử dụng', onTap: () {}),
-                    _menuItem(icon: Icons.info_outline_rounded, color: Colors.grey, title: 'Về ứng dụng', onTap: () {}),
+                    _menuItem(
+                      icon: Icons.history_rounded, 
+                      color: Colors.teal, 
+                      title: 'Lịch sử học tập', 
+                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const StudyHistoryScreen())),
+                    ),
+                    _menuItem(
+                      icon: Icons.receipt_long_rounded, 
+                      color: Colors.orange, 
+                      title: 'Lịch sử giao dịch', 
+                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TransactionHistoryScreen())),
+                    ),
+                    _menuItem(
+                      icon: Icons.help_outline_rounded, 
+                      color: Colors.indigo, 
+                      title: 'Hướng dẫn sử dụng', 
+                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const HelpGuideScreen())),
+                    ),
+                    _menuItem(
+                      icon: Icons.info_outline_rounded, 
+                      color: Colors.grey, 
+                      title: 'Về ứng dụng', 
+                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AboutScreen())),
+                    ),
                   ]),
                   const SizedBox(height: 32),
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton.icon(
-                      onPressed: () => auth.logout(),
+                      onPressed: () {
+                        auth.logout();
+                        // Consumer trong main.dart sẽ tự động đưa user về LoginScreen
+                      },
                       icon: const Icon(Icons.logout_rounded),
                       label: const Text('Đăng xuất tài khoản', style: TextStyle(fontWeight: FontWeight.w700)),
                       style: OutlinedButton.styleFrom(

@@ -20,14 +20,18 @@ class DeckListScreen extends StatelessWidget {
         foregroundColor: AppColors.textPrimary,
         elevation: 0,
       ),
-      body: ListView.builder(
-        padding: const EdgeInsets.all(20),
-        itemCount: deckProvider.decks.length,
-        itemBuilder: (context, index) {
-          final deck = deckProvider.decks[index];
-          return _buildDeckCard(context, deck);
-        },
-      ),
+      body: deckProvider.isLoading && deckProvider.decks.isEmpty
+          ? const Center(child: CircularProgressIndicator())
+          : deckProvider.decks.isEmpty
+              ? const Center(child: Text('Không có bộ thẻ nào'))
+              : ListView.builder(
+                  padding: const EdgeInsets.all(20),
+                  itemCount: deckProvider.decks.length,
+                  itemBuilder: (context, index) {
+                    final deck = deckProvider.decks[index];
+                    return _buildDeckCard(context, deck);
+                  },
+                ),
     );
   }
 

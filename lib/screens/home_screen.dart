@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import '../providers/deck_provider.dart';
 import '../utils/constants.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -25,16 +26,19 @@ class HomeScreen extends StatelessWidget {
                 ),
                 // Thẻ thống kê và nội dung bên dưới
                 Transform.translate(
-                  offset: const Offset(0, -20), // Đẩy thẻ lên trên để tạo hiệu ứng "floating"
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Column(
-                      children: [
-                        _buildFloatingStatsCard(context),
-                        const SizedBox(height: 24),
-                        _buildMainContent(context),
-                      ],
-                    ),
+                  offset: const Offset(0, -20),
+                  child: Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: _buildFloatingStatsCard(context),
+                      ),
+                      const SizedBox(height: 24),
+                      _buildMainContent(context),
+                      const SizedBox(height: 12),
+                      _buildHorizontalDecks(context),
+                      const SizedBox(height: 40),
+                    ],
                   ),
                 ),
               ],
@@ -59,10 +63,13 @@ class HomeScreen extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: 20),
+              const SizedBox(height: 40),
               Consumer<AuthProvider>(
                 builder: (context, auth, _) {
-                  String name = auth.user?.fullName.split(' ').first ?? "Học viên";
+                  final user = auth.user;
+                  String name = (user?.fullName != null && user!.fullName.isNotEmpty) 
+                      ? user.fullName 
+                      : (user?.username ?? "Học viên");
                   return Row(
                     children: [
                       Flexible(
@@ -200,29 +207,34 @@ class HomeScreen extends StatelessWidget {
         const SizedBox(height: 32),
         _buildSectionTitle('DÀNH CHO BẠN'),
         const SizedBox(height: 12),
-        _buildHorizontalDecks(),
       ],
     );
   }
 
   Widget _buildSectionTitle(String title) {
-    return Text(
-      title,
-      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF64748B), letterSpacing: 1.2),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Text(
+        title,
+        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF64748B), letterSpacing: 1.2),
+      ),
     );
   }
 
   Widget _buildMainActions(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: _buildActionCard('Ôn tập\nFlashcard', Icons.style_rounded, const Color(0xFFE3F2FD), const Color(0xFF1E88E5)),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: _buildActionCard('Kiểm tra\nKiến thức', Icons.extension_rounded, const Color(0xFFF3E5F5), const Color(0xFF9C27B0)),
-        ),
-      ],
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Row(
+        children: [
+          Expanded(
+            child: _buildActionCard('Ôn tập\nFlashcard', Icons.style_rounded, const Color(0xFFE3F2FD), const Color(0xFF1E88E5)),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: _buildActionCard('Kiểm tra\nKiến thức', Icons.extension_rounded, const Color(0xFFF3E5F5), const Color(0xFF9C27B0)),
+          ),
+        ],
+      ),
     );
   }
 
@@ -250,42 +262,82 @@ class HomeScreen extends StatelessWidget {
   }
 
   Widget _buildModernGoalCard(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(colors: [Color(0xFF0F172A), Color(0xFF1E293B)]),
-        borderRadius: BorderRadius.circular(28),
-      ),
-      child: const Row(
-        children: [
-          Icon(Icons.auto_awesome, color: Color(0xFF4ADE80), size: 30),
-          SizedBox(width: 20),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Học tập chăm chỉ!', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w900)),
-                Text('Bạn đã hoàn thành 80% mục tiêu ngày.', style: TextStyle(color: Colors.white60, fontSize: 12)),
-              ],
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(colors: [Color(0xFF0F172A), Color(0xFF1E293B)]),
+          borderRadius: BorderRadius.circular(28),
+        ),
+        child: const Row(
+          children: [
+            Icon(Icons.auto_awesome, color: Color(0xFF4ADE80), size: 30),
+            SizedBox(width: 20),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Học tập chăm chỉ!', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w900)),
+                  Text('Bạn đã hoàn thành 80% mục tiêu ngày.', style: TextStyle(color: Colors.white60, fontSize: 12)),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildHorizontalDecks() {
-    return SizedBox(
-      height: 160,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        clipBehavior: Clip.none,
-        children: [
-          _buildDeckItem('N5 Từ vựng', '50 từ', Colors.blue),
-          _buildDeckItem('Kanji N4', '20 chữ', Colors.orange),
-          _buildDeckItem('Ngữ pháp N3', '15 bài', Colors.purple),
-        ],
-      ),
+  Widget _buildHorizontalDecks(BuildContext context) {
+    return Consumer<DeckProvider>(
+      builder: (context, deckProvider, _) {
+        if (deckProvider.isLoading && deckProvider.decks.isEmpty) {
+          return const SizedBox(
+            height: 160,
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+        
+        if (deckProvider.decks.isEmpty) {
+          return Container(
+            height: 160,
+            width: double.infinity,
+            margin: const EdgeInsets.symmetric(horizontal: 20),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.5),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: Colors.black.withOpacity(0.05)),
+            ),
+            child: const Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.folder_open_rounded, color: Colors.grey, size: 40),
+                SizedBox(height: 8),
+                Text('Chưa có bộ thẻ được đề xuất', style: TextStyle(color: Colors.grey, fontSize: 13)),
+              ],
+            ),
+          );
+        }
+
+        return SizedBox(
+          height: 160,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            clipBehavior: Clip.none,
+            itemCount: deckProvider.decks.length,
+            itemBuilder: (context, index) {
+              final deck = deckProvider.decks[index];
+              return _buildDeckItem(
+                deck.name, 
+                '${deck.totalCards} thẻ', 
+                index % 3 == 0 ? Colors.blue : (index % 3 == 1 ? Colors.orange : Colors.purple)
+              );
+            },
+          ),
+        );
+      },
     );
   }
 

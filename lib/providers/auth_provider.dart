@@ -56,14 +56,14 @@ class AuthProvider with ChangeNotifier {
       if (response.statusCode == 200) {
         final data = response.data;
         _token = data['token'] ?? data['data']?['token'];
-        
+
         if (_token != null) {
           final prefs = await SharedPreferences.getInstance();
           await prefs.setString('token', _token!);
           _dio.options.headers['Authorization'] = 'Bearer $_token';
-          
+
           await _fetchProfile();
-          
+
           _isLoading = false;
           notifyListeners();
           return true;
@@ -115,7 +115,7 @@ class AuthProvider with ChangeNotifier {
     } catch (e) {
       // Ignore error on logout call
     }
-    
+
     _user = null;
     _userStats = null;
     _token = null;
@@ -129,9 +129,9 @@ class AuthProvider with ChangeNotifier {
     try {
       final response = await _dio.get('/user/profile');
       final data = response.data;
-      
+
       final userData = (data['data'] != null) ? data['data'] : data;
-      
+
       // Map API response to User model
       // If the API doesn't return an id or username we assign fallbacks
       _user = User(

@@ -29,10 +29,7 @@ class _LoginScreenState extends State<LoginScreen> {
       
       if (success) {
         if (!mounted) return;
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const MainNavigation()),
-        );
+        // Không cần Navigator.push vì Consumer trong main.dart sẽ tự động nhận diện thay đổi trạng thái
       } else {
         setState(() {
           _errorMessage = 'Email hoặc mật khẩu không chính xác.';

@@ -27,6 +27,7 @@ class ApiConstants {
 
   // User Endpoints
   static const String profile = '$baseUrl/user/profile';
+  static const String transactions = '$baseUrl/user/transactions';
 
   // Deck Endpoints
   static const String decks = '$baseUrl/decks';

@@ -4,6 +4,7 @@ import 'package:flashcard_quiz_app/core/database/db_connection.dart';
 import 'package:flashcard_quiz_app/providers/auth_provider.dart';
 import 'package:flashcard_quiz_app/providers/notification_provider.dart';
 import 'package:flashcard_quiz_app/providers/deck_provider.dart';
+import 'package:flashcard_quiz_app/providers/transaction_provider.dart';
 import 'package:flashcard_quiz_app/screens/login_screen.dart';
 import 'package:flashcard_quiz_app/screens/main_navigation.dart';
 import 'package:flashcard_quiz_app/utils/constants.dart';
@@ -17,6 +18,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => NotificationProvider()),
         ChangeNotifierProvider(create: (_) => DeckProvider()),
+        ChangeNotifierProvider(create: (_) => TransactionProvider()),
       ],
       child: const MyApp(),
     ),
