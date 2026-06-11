@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/deck_provider.dart';
 import '../utils/constants.dart';
+import 'profile_screen.dart';
+import 'notification_settings_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -10,31 +12,33 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F7FA),
+      backgroundColor: const Color(0xFFF1F5F9),
       body: CustomScrollView(
         physics: const BouncingScrollPhysics(),
         slivers: [
-          _buildModernHeader(context),
+          _buildMaziiHeader(context),
           SliverToBoxAdapter(
             child: Column(
               children: [
-                // Khối nền xanh nối tiếp AppBar
-                Container(
-                  width: double.infinity,
-                  height: 20,
-                  color: AppColors.primary,
-                ),
-                // Thẻ thống kê và nội dung bên dưới
-                Transform.translate(
-                  offset: const Offset(0, -20),
+                _buildSearchOverlay(context),
+                Padding(
+                  padding: const EdgeInsets.all(20),
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: _buildFloatingStatsCard(context),
-                      ),
+                      _buildQuickMenu(),
                       const SizedBox(height: 24),
-                      _buildMainContent(context),
+                      _buildFloatingStatsCard(context),
+                      const SizedBox(height: 32),
+                      _buildSectionHeader('NỘI DUNG HÀNG NGÀY'),
+                      const SizedBox(height: 12),
+                      _buildDailyContentGrid(),
+                      const SizedBox(height: 32),
+                      _buildSectionHeader('LỘ TRÌNH JLPT'),
+                      const SizedBox(height: 12),
+                      _buildJLPTPathways(),
+                      const SizedBox(height: 32),
+                      _buildSectionHeader('BỘ THẺ ĐỀ XUẤT'),
                       const SizedBox(height: 12),
                       _buildHorizontalDecks(context),
                       const SizedBox(height: 40),
@@ -49,129 +53,217 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildModernHeader(BuildContext context) {
+  Widget _buildMaziiHeader(BuildContext context) {
     return SliverAppBar(
-      expandedHeight: 120,
+      expandedHeight: 100,
       pinned: true,
-      elevation: 0,
       backgroundColor: AppColors.primary,
-      automaticallyImplyLeading: false,
+      elevation: 0,
       flexibleSpace: FlexibleSpaceBar(
         background: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [AppColors.primary, Color(0xFF1565C0)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
           padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const SizedBox(height: 40),
-              Consumer<AuthProvider>(
-                builder: (context, auth, _) {
-                  final user = auth.user;
-                  String name = (user?.fullName != null && user!.fullName.isNotEmpty) 
-                      ? user.fullName 
-                      : (user?.username ?? "Học viên");
-                  return Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          'Chào $name! 👋',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 22,
-                            fontWeight: FontWeight.w900,
-                            overflow: TextOverflow.ellipsis,
-                          ),
+              const Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(height: 20),
+                  Text('NihonGo!', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900)),
+                  Text('Học tiếng Nhật thật dễ dàng', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                ],
+              ),
+              Padding(
+                padding: const EdgeInsets.only(top: 20),
+                child: Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.notifications_none_rounded, color: Colors.white, size: 26),
+                      onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationSettingsScreen())),
+                    ),
+                    const SizedBox(width: 4),
+                    Consumer<AuthProvider>(
+                      builder: (context, auth, _) => GestureDetector(
+                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfileScreen())),
+                        child: CircleAvatar(
+                          radius: 18,
+                          backgroundColor: Colors.white24,
+                          child: const Icon(Icons.person_rounded, color: Colors.white, size: 20),
                         ),
                       ),
-                      if (auth.user?.isPremium == true) ...[
-                        const SizedBox(width: 8),
-                        _buildPremiumBadge(),
-                      ],
-                    ],
-                  );
-                },
-              ),
-              const Text(
-                'Hôm nay bạn muốn học gì?',
-                style: TextStyle(color: Colors.white70, fontSize: 13),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
         ),
       ),
-      actions: [
-        IconButton(
-          onPressed: () {},
-          icon: const Icon(Icons.notifications_none_rounded, color: Colors.white),
+    );
+  }
+
+  Widget _buildSearchOverlay(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      color: AppColors.primary,
+      padding: const EdgeInsets.only(left: 20, right: 20, bottom: 20),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10)],
         ),
-        const SizedBox(width: 8),
+        child: TextField(
+          decoration: InputDecoration(
+            hintText: 'Tìm kiếm từ vựng, Hán tự, ngữ pháp...',
+            hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
+            border: InputBorder.none,
+            icon: const Icon(Icons.search_rounded, color: AppColors.primary),
+            suffixIcon: const Icon(Icons.camera_alt_rounded, color: Colors.grey),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuickMenu() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          _buildMenuIcon(Icons.style_rounded, 'Flashcard', Colors.blue),
+          _buildMenuIcon(Icons.translate_rounded, 'Dịch', Colors.green),
+          _buildMenuIcon(Icons.psychology_rounded, 'Quiz', Colors.red),
+          _buildMenuIcon(Icons.menu_book_rounded, 'Ngữ pháp', Colors.orange),
+          _buildMenuIcon(Icons.school_rounded, 'JLPT', Colors.purple),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMenuIcon(IconData icon, String label, Color color) {
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(16)),
+          child: Icon(icon, color: color, size: 28),
+        ),
+        const SizedBox(height: 8),
+        Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
       ],
     );
   }
 
-  Widget _buildPremiumBadge() {
+  Widget _buildDailyContentGrid() {
+    return Row(
+      children: [
+        Expanded(
+          child: _buildDailyCard('Từ vựng ngày', '学習 (Gakushuu)', 'Học tập, nghiên cứu', Colors.blue),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _buildDailyCard('Hán tự ngày', '強 (Cường)', 'Mạnh mẽ, sức mạnh', Colors.orange),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDailyCard(String label, String main, String sub, Color color) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.accent,
-        borderRadius: BorderRadius.circular(6),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border(left: BorderSide(color: color, width: 4)),
       ),
-      child: const Text(
-        'PRO',
-        style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: Colors.black),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: TextStyle(fontSize: 10, color: Colors.grey.shade600, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          Text(main, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: AppColors.textPrimary)),
+          const SizedBox(height: 4),
+          Text(sub, style: TextStyle(fontSize: 12, color: Colors.grey.shade500), maxLines: 1, overflow: TextOverflow.ellipsis),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildJLPTPathways() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: ['N5', 'N4', 'N3', 'N2', 'N1'].map((level) {
+          return Container(
+            margin: const EdgeInsets.only(right: 12),
+            width: 70,
+            height: 70,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+              border: Border.all(color: AppColors.primary.withOpacity(0.2), width: 2),
+            ),
+            child: Center(
+              child: Text(level, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.primary)),
+            ),
+          );
+        }).toList(),
       ),
     );
   }
 
   Widget _buildFloatingStatsCard(BuildContext context) {
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: const Color(0xFF1E293B),
         borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          )
-        ],
       ),
       child: Consumer<AuthProvider>(
         builder: (context, auth, _) {
           final stats = auth.userStats;
-          if (stats == null) return const Center(child: CircularProgressIndicator());
+          if (stats == null) return const SizedBox();
           return Column(
-            mainAxisSize: MainAxisSize.min,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _buildStatItem('Streak', '${stats.currentStreak}', Icons.local_fire_department_rounded, Colors.orange),
-                  _buildStatItem('Exp', '${stats.totalExp}', Icons.star_rounded, AppColors.accent),
-                  _buildStatItem('Cấp', '${stats.level}', Icons.emoji_events_rounded, Colors.green),
-                ],
-              ),
-              const SizedBox(height: 20),
-              const Divider(height: 1),
-              const SizedBox(height: 16),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('Tiến trình', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF94A3B8))),
-                  Text('${stats.totalExp % 500}/500 XP', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: AppColors.primary)),
+                  const Text('Tiến độ học tập', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  Text('${stats.totalExp} XP', style: const TextStyle(color: AppColors.accent, fontWeight: FontWeight.bold)),
                 ],
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 12),
               ClipRRect(
                 borderRadius: BorderRadius.circular(10),
                 child: LinearProgressIndicator(
                   value: (stats.totalExp % 500) / 500,
-                  backgroundColor: const Color(0xFFF1F5F9),
-                  valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
-                  minHeight: 6,
+                  backgroundColor: Colors.white10,
+                  valueColor: const AlwaysStoppedAnimation<Color>(AppColors.accent),
+                  minHeight: 8,
                 ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _buildStatSmall('${stats.currentStreak}', 'Streak', Icons.local_fire_department_rounded, Colors.orange),
+                  _buildStatSmall('${stats.level}', 'Cấp độ', Icons.emoji_events_rounded, Colors.amber),
+                ],
               ),
             ],
           );
@@ -180,186 +272,62 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildStatItem(String label, String value, IconData icon, Color color) {
-    return Expanded(
-      child: Column(
-        children: [
-          Icon(icon, color: color, size: 18),
-          const SizedBox(height: 4),
-          Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
-          Text(label, style: const TextStyle(fontSize: 10, color: Color(0xFF94A3B8), fontWeight: FontWeight.w600)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMainContent(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildStatSmall(String value, String label, IconData icon, Color color) {
+    return Row(
       children: [
-        _buildSectionTitle('CHƯƠNG TRÌNH HỌC'),
-        const SizedBox(height: 12),
-        _buildMainActions(context),
-        const SizedBox(height: 32),
-        _buildSectionTitle('TIẾN ĐỘ HÔM NAY'),
-        const SizedBox(height: 12),
-        _buildModernGoalCard(context),
-        const SizedBox(height: 32),
-        _buildSectionTitle('DÀNH CHO BẠN'),
-        const SizedBox(height: 12),
+        Icon(icon, color: color, size: 16),
+        const SizedBox(width: 6),
+        Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+        const SizedBox(width: 4),
+        Text(label, style: const TextStyle(color: Colors.white54, fontSize: 12)),
       ],
     );
   }
 
-  Widget _buildSectionTitle(String title) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Text(
-        title,
-        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF64748B), letterSpacing: 1.2),
-      ),
-    );
-  }
-
-  Widget _buildMainActions(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Row(
-        children: [
-          Expanded(
-            child: _buildActionCard('Ôn tập\nFlashcard', Icons.style_rounded, const Color(0xFFE3F2FD), const Color(0xFF1E88E5)),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: _buildActionCard('Kiểm tra\nKiến thức', Icons.extension_rounded, const Color(0xFFF3E5F5), const Color(0xFF9C27B0)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActionCard(String title, IconData icon, Color bg, Color iconColor) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 10, offset: const Offset(0, 4))],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(12)),
-            child: Icon(icon, color: iconColor, size: 24),
-          ),
-          const SizedBox(height: 16),
-          Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, height: 1.2)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildModernGoalCard(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Container(
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(colors: [Color(0xFF0F172A), Color(0xFF1E293B)]),
-          borderRadius: BorderRadius.circular(28),
-        ),
-        child: const Row(
-          children: [
-            Icon(Icons.auto_awesome, color: Color(0xFF4ADE80), size: 30),
-            SizedBox(width: 20),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Học tập chăm chỉ!', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w900)),
-                  Text('Bạn đã hoàn thành 80% mục tiêu ngày.', style: TextStyle(color: Colors.white60, fontSize: 12)),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
+  Widget _buildSectionHeader(String title) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFF64748B), letterSpacing: 1)),
+        const Text('Tất cả', style: TextStyle(fontSize: 12, color: AppColors.primary, fontWeight: FontWeight.bold)),
+      ],
     );
   }
 
   Widget _buildHorizontalDecks(BuildContext context) {
     return Consumer<DeckProvider>(
       builder: (context, deckProvider, _) {
-        if (deckProvider.isLoading && deckProvider.decks.isEmpty) {
-          return const SizedBox(
-            height: 160,
-            child: Center(child: CircularProgressIndicator()),
-          );
-        }
-        
-        if (deckProvider.decks.isEmpty) {
-          return Container(
-            height: 160,
-            width: double.infinity,
-            margin: const EdgeInsets.symmetric(horizontal: 20),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.5),
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: Colors.black.withOpacity(0.05)),
-            ),
-            child: const Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.folder_open_rounded, color: Colors.grey, size: 40),
-                SizedBox(height: 8),
-                Text('Chưa có bộ thẻ được đề xuất', style: TextStyle(color: Colors.grey, fontSize: 13)),
-              ],
-            ),
-          );
-        }
-
+        if (deckProvider.isLoading) return const Center(child: CircularProgressIndicator());
         return SizedBox(
-          height: 160,
+          height: 140,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 20),
             clipBehavior: Clip.none,
             itemCount: deckProvider.decks.length,
             itemBuilder: (context, index) {
               final deck = deckProvider.decks[index];
-              return _buildDeckItem(
-                deck.name, 
-                '${deck.totalCards} thẻ', 
-                index % 3 == 0 ? Colors.blue : (index % 3 == 1 ? Colors.orange : Colors.purple)
+              return Container(
+                width: 140,
+                margin: const EdgeInsets.only(right: 12),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.folder_rounded, color: Colors.blue.withOpacity(0.5), size: 30),
+                    const Spacer(),
+                    Text(deck.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14), maxLines: 1),
+                    Text('${deck.totalCards} thẻ', style: const TextStyle(color: Colors.grey, fontSize: 11)),
+                  ],
+                ),
               );
             },
           ),
         );
       },
-    );
-  }
-
-  Widget _buildDeckItem(String title, String count, Color accent) {
-    return Container(
-      width: 140,
-      margin: const EdgeInsets.only(right: 16),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 10, offset: const Offset(0, 4))],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(Icons.folder_copy_rounded, color: accent, size: 24),
-          const Spacer(),
-          Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900)),
-          Text(count, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11, fontWeight: FontWeight.w600)),
-        ],
-      ),
     );
   }
 }
