@@ -20,6 +20,7 @@ class AuthProvider with ChangeNotifier {
 
   User? get user => _user;
   UserStats? get userStats => _userStats;
+  String? get token => _token;
   bool get isAuthenticated => _token != null;
   bool get isLoading => _isLoading;
 
@@ -133,9 +134,11 @@ class AuthProvider with ChangeNotifier {
       final userData = (data['data'] != null) ? data['data'] : data;
 
       // Map API response to User model
-      // If the API doesn't return an id or username we assign fallbacks
+      // BE có thể trả về user_id (snake_case) hoặc id
+      final dynamic idValue = userData['user_id'] ?? userData['id'] ?? userData['sub'];
+      
       _user = User(
-        id: (userData['id'] ?? userData['sub'] ?? '0').toString(),
+        id: (idValue ?? '0').toString(),
         username: userData['username'] ?? userData['email']?.split('@')[0] ?? 'user',
         email: userData['email'] ?? '',
         fullName: userData['full_name'] ?? userData['name'] ?? '',

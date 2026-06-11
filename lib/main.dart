@@ -18,7 +18,13 @@ void main() async {
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => NotificationProvider()),
         ChangeNotifierProvider(create: (_) => DeckProvider()),
-        ChangeNotifierProvider(create: (_) => TransactionProvider()),
+        ChangeNotifierProxyProvider<AuthProvider, TransactionProvider>(
+          create: (_) => TransactionProvider(),
+          update: (_, auth, trans) {
+            trans!.updateToken(auth.token);
+            return trans;
+          },
+        ),
       ],
       child: const MyApp(),
     ),

@@ -20,6 +20,11 @@ class ApiConstants {
   static const String baseUrl = 'http://localhost:8080/api/v1';
   // Chỉnh lại thành http://10.0.2.2:8080/api/v1 khi sài emulator
 
+  // Receipt & Membership Endpoints
+  static const String memberships = '$baseUrl/memberships';
+  static const String receipts = '$baseUrl/receipts';
+  static const String vnpay = '$baseUrl/vnpay';
+
   // Auth Endpoints
   static const String login = '$baseUrl/auth/login';
   static const String register = '$baseUrl/auth/register';

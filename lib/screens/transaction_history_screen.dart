@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import '../providers/auth_provider.dart';
 import '../providers/transaction_provider.dart';
 import '../utils/constants.dart';
 
@@ -16,7 +17,10 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<TransactionProvider>().fetchTransactions();
+      final auth = context.read<AuthProvider>();
+      if (auth.user != null) {
+        context.read<TransactionProvider>().fetchTransactions(auth.user!.id);
+      }
     });
   }
 
@@ -47,7 +51,12 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                   Text(provider.error!, style: const TextStyle(color: AppColors.textSecondary)),
                   const SizedBox(height: 24),
                   ElevatedButton(
-                    onPressed: () => provider.fetchTransactions(),
+                    onPressed: () {
+                      final auth = context.read<AuthProvider>();
+                      if (auth.user != null) {
+                        provider.fetchTransactions(auth.user!.id);
+                      }
+                    },
                     child: const Text('Thử lại'),
                   ),
                 ],

@@ -1,5 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../providers/auth_provider.dart';
+import '../providers/transaction_provider.dart';
 import '../utils/constants.dart';
+import '../models/membership_plan.dart';
+import 'package:intl/intl.dart';
+import 'payment_status_screen.dart';
 
 class MembershipScreen extends StatefulWidget {
   const MembershipScreen({super.key});
@@ -9,35 +16,22 @@ class MembershipScreen extends StatefulWidget {
 }
 
 class _MembershipScreenState extends State<MembershipScreen> {
-  int _selectedPlanIndex = 1; // Default to Yearly
+  int? _selectedPlanId;
+  final currencyFormat = NumberFormat.currency(locale: 'vi_VN', symbol: 'đ');
 
-  final List<Map<String, dynamic>> _plans = [
-    {
-      'name': 'Hàng tháng',
-      'price': '99.000đ',
-      'period': '/tháng',
-      'description': 'Phù hợp để trải nghiệm ngắn hạn',
-      'icon': Icons.calendar_today_outlined,
-    },
-    {
-      'name': 'Hàng năm',
-      'price': '699.000đ',
-      'period': '/năm',
-      'description': 'Tiết kiệm 40% so với gói tháng',
-      'icon': Icons.auto_awesome_rounded,
-      'isBestValue': true,
-    },
-    {
-      'name': 'Vĩnh viễn',
-      'price': '1.599.000đ',
-      'period': '',
-      'description': 'Sở hữu trọn đời, không gia hạn',
-      'icon': Icons.all_inclusive_rounded,
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<TransactionProvider>().fetchMembershipPlans();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
+    final transactionProvider = context.watch<TransactionProvider>();
+    final authProvider = context.watch<AuthProvider>();
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
@@ -47,30 +41,35 @@ class _MembershipScreenState extends State<MembershipScreen> {
         foregroundColor: AppColors.textPrimary,
         elevation: 0,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            _buildHeroSection(),
-            const SizedBox(height: 32),
-            _buildBenefitSection(),
-            const SizedBox(height: 32),
-            _buildSectionHeader('CHỌN GÓI CỦA BẠN'),
-            const SizedBox(height: 12),
-            ..._plans.asMap().entries.map((entry) => _buildPlanCard(entry.key, entry.value)),
-            const SizedBox(height: 32),
-            _buildPromoCodeSection(),
-            const SizedBox(height: 40),
-            _buildPaymentButton(),
-            const SizedBox(height: 20),
-            const Text(
-              'Hủy bất cứ lúc nào trong cài đặt App Store / Play Store',
-              style: TextStyle(color: AppColors.textSecondary, fontSize: 11),
+      body: transactionProvider.isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                children: [
+                  _buildHeroSection(),
+                  const SizedBox(height: 32),
+                  _buildBenefitSection(),
+                  const SizedBox(height: 32),
+                  _buildSectionHeader('CHỌN GÓI CỦA BẠN'),
+                  const SizedBox(height: 12),
+                  if (transactionProvider.plans.isEmpty)
+                    const Text('Hiện không có gói hội viên nào khả dụng.')
+                  else
+                    ...transactionProvider.plans.map((plan) => _buildPlanCard(plan)),
+                  const SizedBox(height: 32),
+                  _buildPromoCodeSection(),
+                  const SizedBox(height: 40),
+                  _buildPaymentButton(authProvider, transactionProvider),
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Hủy bất cứ lúc nào trong cài đặt App Store / Play Store',
+                    style: TextStyle(color: AppColors.textSecondary, fontSize: 11),
+                  ),
+                  const SizedBox(height: 40),
+                ],
+              ),
             ),
-            const SizedBox(height: 40),
-          ],
-        ),
-      ),
     );
   }
 
@@ -87,7 +86,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
         borderRadius: BorderRadius.circular(32),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primary.withValues(alpha: 0.3),
+            color: AppColors.primary.withOpacity(0.3),
             blurRadius: 20,
             offset: const Offset(0, 10),
           )
@@ -131,7 +130,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
         children: [
           Container(
             padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+            decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
             child: Icon(icon, color: AppColors.primary, size: 20),
           ),
           const SizedBox(width: 16),
@@ -159,12 +158,12 @@ class _MembershipScreenState extends State<MembershipScreen> {
     );
   }
 
-  Widget _buildPlanCard(int index, Map<String, dynamic> plan) {
-    bool isSelected = _selectedPlanIndex == index;
-    bool isBestValue = plan['isBestValue'] ?? false;
+  Widget _buildPlanCard(MembershipPlan plan) {
+    bool isSelected = _selectedPlanId == plan.id;
+    bool isBestValue = plan.name.toLowerCase().contains('năm');
 
     return GestureDetector(
-      onTap: () => setState(() => _selectedPlanIndex = index),
+      onTap: () => setState(() => _selectedPlanId = plan.id),
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(20),
@@ -176,7 +175,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
             width: 2,
           ),
           boxShadow: [
-            BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 10, offset: const Offset(0, 4))
+            BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))
           ],
         ),
         child: Row(
@@ -184,10 +183,14 @@ class _MembershipScreenState extends State<MembershipScreen> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: isSelected ? AppColors.primary.withValues(alpha: 0.1) : const Color(0xFFF1F5F9),
+                color: isSelected ? AppColors.primary.withOpacity(0.1) : const Color(0xFFF1F5F9),
                 shape: BoxShape.circle,
               ),
-              child: Icon(plan['icon'], color: isSelected ? AppColors.primary : AppColors.textSecondary, size: 24),
+              child: Icon(
+                plan.durationDays >= 365 ? Icons.auto_awesome_rounded : Icons.calendar_today_outlined,
+                color: isSelected ? AppColors.primary : AppColors.textSecondary,
+                size: 24,
+              ),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -196,27 +199,26 @@ class _MembershipScreenState extends State<MembershipScreen> {
                 children: [
                   Row(
                     children: [
-                      Text(plan['name'], style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+                      Text(plan.name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
                       if (isBestValue) ...[
                         const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(color: Colors.green.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(20)),
+                          decoration: BoxDecoration(color: Colors.green.withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
                           child: const Text('GIÁ TỐT NHẤT', style: TextStyle(color: Colors.green, fontSize: 9, fontWeight: FontWeight.bold)),
                         ),
                       ],
                     ],
                   ),
-                  Text(plan['description'], style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                  Text(plan.description, style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
                 ],
               ),
             ),
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Text(plan['price'], style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: AppColors.primary)),
-                if (plan['period'].isNotEmpty)
-                  Text(plan['period'], style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                Text(currencyFormat.format(plan.price), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: AppColors.primary)),
+                Text(plan.durationDays >= 9999 ? 'Vĩnh viễn' : '/${plan.durationDays} ngày', style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
               ],
             ),
           ],
@@ -247,63 +249,108 @@ class _MembershipScreenState extends State<MembershipScreen> {
     );
   }
 
-  Widget _buildPaymentButton() {
+  Widget _buildPaymentButton(AuthProvider auth, TransactionProvider trans) {
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton(
-        onPressed: () => _showPaymentSuccess(),
+        onPressed: _selectedPlanId == null ? null : () => _handlePayment(auth, trans),
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primary,
           foregroundColor: Colors.white,
+          disabledBackgroundColor: Colors.grey[300],
           padding: const EdgeInsets.symmetric(vertical: 20),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           elevation: 8,
-          shadowColor: AppColors.primary.withValues(alpha: 0.4),
+          shadowColor: AppColors.primary.withOpacity(0.4),
         ),
-        child: const Row(
+        child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.account_balance_wallet_rounded),
-            SizedBox(width: 12),
-            Text('THANH TOÁN QUA VNPAY', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: 1)),
+            const Icon(Icons.account_balance_wallet_rounded),
+            const SizedBox(width: 12),
+            Text(
+              trans.isLoading ? 'ĐANG XỬ LÝ...' : 'XÁC NHẬN THANH TOÁN',
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: 1),
+            ),
           ],
         ),
       ),
     );
   }
 
-  void _showPaymentSuccess() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(32)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.check_circle_rounded, color: Colors.green, size: 80),
-            const SizedBox(height: 20),
-            const Text('Thành công!', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
-            const SizedBox(height: 8),
-            const Text(
-              'Chúc mừng! Bạn hiện là thành viên Premium của NihonGo!',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: AppColors.textSecondary),
-            ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () => Navigator.pop(context),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                child: const Text('BẮT ĐẦU HỌC', style: TextStyle(color: Colors.white)),
-              ),
-            ),
-          ],
-        ),
-      ),
+  Future<void> _handlePayment(AuthProvider auth, TransactionProvider trans) async {
+    if (_selectedPlanId == null || auth.user == null) return;
+
+    final plan = trans.plans.firstWhere((p) => p.id == _selectedPlanId);
+
+    final result = await trans.createPaymentRequest(
+      userId: auth.user!.id,
+      membershipId: plan.id,
+      amount: plan.price,
     );
+
+    if (result != null) {
+      final String url = result['url'];
+      final String receiptId = result['receiptId'];
+
+      if (mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => AlertDialog(
+            title: const Text('Đang xử lý thanh toán'),
+            content: const Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('Vui lòng hoàn tất thanh toán tại cửa sổ mới.'),
+                SizedBox(height: 20),
+                CircularProgressIndicator(),
+                SizedBox(height: 20),
+                Text(
+                  'Hệ thống sẽ tự động cập nhật sau khi bạn thanh toán thành công.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('ĐÓNG', style: TextStyle(color: AppColors.textSecondary)),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+                },
+                child: const Text('MỞ LẠI TRANG THANH TOÁN'),
+              ),
+            ],
+          ),
+        );
+
+        // Mở trang VNPay ngay lập tức
+        await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+
+        // Bắt đầu Polling: Cứ 3 giây kiểm tra status 1 lần
+        bool paid = false;
+        for (int i = 0; i < 20; i++) { // Thử trong vòng 60 giây
+          await Future.delayed(const Duration(seconds: 3));
+          paid = await trans.checkReceiptStatus(receiptId, auth.user!.id);
+          if (paid) break;
+        }
+
+        if (mounted) {
+          Navigator.pop(context); // Đóng dialog chờ
+          
+          // Chuyển hướng sang trang kết quả
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => PaymentStatusScreen(isSuccess: paid),
+            ),
+          );
+        }
+      }
+    }
   }
 }
