@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:flashcard_quiz_app/core/database/db_connection.dart';
 import 'package:flashcard_quiz_app/providers/auth_provider.dart';
 import 'package:flashcard_quiz_app/providers/notification_provider.dart';
 import 'package:flashcard_quiz_app/providers/deck_provider.dart';
@@ -17,7 +16,16 @@ void main() async {
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => NotificationProvider()),
-        ChangeNotifierProvider(create: (_) => DeckProvider()),
+        ChangeNotifierProxyProvider<AuthProvider, DeckProvider>(
+          create: (_) => DeckProvider(),
+          update: (_, auth, deck) {
+            deck!.updateToken(auth.token);
+            if (auth.isAuthenticated && deck.decks.isEmpty) {
+              deck.fetchDecks();
+            }
+            return deck;
+          },
+        ),
         ChangeNotifierProxyProvider<AuthProvider, TransactionProvider>(
           create: (_) => TransactionProvider(),
           update: (_, auth, trans) {
