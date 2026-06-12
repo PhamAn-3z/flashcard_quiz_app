@@ -1,0 +1,287 @@
+Phần 1: hiện thực hóa giao diện "Sao chép và dán" (Copy & Paste Bulk Import) giống như Quizlet dựa trên tài liệu đặc tả hệ thống ma trận đa chiều
+Phương án này giúp người dùng nhập liệu cực nhanh bằng cách dán văn bản thô (Raw Text), sau đó Frontend tự động phân tách (Parse) chuỗi thành cấu trúc headers và rows trước khi bắn API lên POST http://localhost:8080/api/v1/decks/bulk-import.
+I. THIẾT KẾ GIAO DIỆN MÀN HÌNH (UI/UX COMPONENTS)
+Giao diện trên Flutter sẽ được bố trí theo dạng một biểu mẫu cuộn từ trên xuống dưới một cách mạch lạc:
+
+1. Khu vực Cấu hình Bộ đề (Deck Metadata)
+Nằm ở trên cùng, giúp người dùng thiết lập thông tin cơ bản cho chiếc hộp chứa lớn:
+
+Tiêu đề bộ đề: Một TextField nhập tên bộ đề (deckTitle).
+
+Trạng thái chia sẻ: Một DropdownButton chọn public, private, hoặc hidden (publicStatus).
+
+Vị trí phân cấp Anki: Một DropdownButton chứa danh sách các Deck hiện có để chọn làm bộ đề cha (parentId), mặc định là "Không có" (null).
+2. Khung nhập liệu văn bản thô (Raw Text Area)
+Sử dụng một TextField lớn, bật thuộc tính nhập nhiều dòng để người dùng thoải mái chép dán dữ liệu từ Word, Excel, Google Docs vào.
+
+Dart
+TextField(
+  maxLines: null, // Cho phép khung tự động giãn theo độ dài văn bản
+  keyboardType: TextInputType.multiline,
+  decoration: InputDecoration(
+    hintText: "Từ 1 [Tab] Định nghĩa 1\nTừ 2 [Tab] Định nghĩa 2\nTừ 3 [Tab] Định nghĩa 3",
+    border: OutlineInputBorder(),
+  ),
+)
+3. Khu vực Cấu hình Ký tự phân tách (Delimiter Selectors)Sử dụng các Widget Radio để người dùng chủ động chọn quy tắc cắt chuỗi (Quizlet gọi là tùy chọn phân tách dữ liệu):Giữa thuật ngữ và định nghĩa (Ký tự phân tách Hàng/Cột):Tab (Ký tự \t) $\rightarrow$ Mặc định chuẩn khi copy từ Excel/Quizlet.Dấu phẩy (Ký tự ,).Tùy chỉnh $\rightarrow$ Hiện ra một ô nhập liệu ký tự nhỏ (Ví dụ: -, :, /).Giữa các thẻ (Ký tự phân tách các tấm thẻ vật lý):Dòng mới (Ký tự xuống dòng \n) $\rightarrow$ Mặc định.Dấu chấm phẩy (Ký tự ;).Tùy chỉnh.4. Khu vực Xem trước dữ liệu trực tiếp (Live Data Preview Table)Hiển thị một dòng trạng thái: "Xem trước (X thẻ)", trong đó số X sẽ tự động nhảy số theo thời gian thực (Real-time) mỗi khi người dùng gõ chữ hoặc đổi ký tự phân tách.Nếu chưa có chữ: Hiển thị dòng chữ xám "Không có nội dung để xem trước".Nếu có chữ: Hiển thị một bảng dữ liệu (DataTable nằm trong SingleChildScrollView) được cắt thử nghiệm để user kiểm tra xem từ và định nghĩa đã nhảy đúng ô ma trận chưa.5. Nút bấm thực thi (Execution Button)Nút "Tạo bộ đề và tải lên" nằm ở cuối trang.Xử lý UX: Khi bấm nút, nút này sẽ biến mất và thay thế bằng một vòng xoay loading (CircularProgressIndicator) kèm thông báo: "Hệ thống đang khởi tạo ma trận dữ liệu và thiết lập lộ trình học cá nhân hóa, vui lòng không đóng ứng dụng..."
+II. CHI TIẾT DỮ LIỆU ĐẦU VÀO (INPUT)Khi người dùng nhấn nút tải lên, dữ liệu đầu vào bắn đi sẽ được chia làm hai tầng rạch ròi:1. Header (Xác thực & Định danh)Authorization: Bearer <JWT_TOKEN> $\rightarrow$ Dùng để Backend bóc tách ra số nguyên userId, làm điểm neo để ghi dữ liệu cá nhân hóa xuống các bảng user_decks, users_groups, và users_positions.Content-Type: application/json2. Request Body (Request Payload)Mặc dù người dùng nhập vào là văn bản thô, nhưng thuật toán trên app Flutter đã xử lý cắt chữ và đóng gói thành cục JSON chuẩn hóa dưới đây trước khi gửi đi:
+{
+  "deckTitle": "Từ vựng Soumatome N3 - Chương 1 (Dán từ Quizlet)",
+  "publicStatus": "public",
+  "parentId": null,
+  "headers": [
+    { "key": "term", "name": "Thuật ngữ", "position": 1 },
+    { "key": "definition", "name": "Định nghĩa", "position": 2 }
+  ],
+  "rows": [
+    { "term": "Từ 1", "definition": "Định nghĩa 1" },
+    { "term": "Từ 2", "definition": "Định nghĩa 2" },
+    { "term": "Từ 3", "definition": "Định nghĩa 3" }
+  ]
+}
+III. THUẬT TOÁN CẮT CHUỖI TRÊN FLUTTER (FRONTEND LOGIC)
+Để hỗ trợ đội Frontend viết mã nguồn, đây là hàm thuật toán Dart dùng để lắng nghe sự kiện thay đổi văn bản và chuyển đổi dữ liệu thô thành cục JSON đúng chuẩn:
+
+Dart
+Map<String, dynamic> parseRawTextToBulkPayload({
+  required String rawText,
+  required String cardDelimiter, // Ví dụ: "\n"
+  required String termDelimiter, // Ví dụ: "\t"
+  required String deckTitle,
+  required String publicStatus,
+  required int? parentId,
+}) {
+  // 1. Tách văn bản thô thành các dòng độc lập (mỗi dòng là một thẻ position)
+  List<String> rawLines = rawText.split(cardDelimiter);
+
+  // Dọn dẹp dòng trống rác do người dùng lỡ ấn Enter thừa ở cuối khung nhập
+  rawLines.removeWhere((line) => line.trim().isEmpty);
+
+  // 2. Định nghĩa cấu trúc headers ma trận cố định (Vì dạng dán chữ này chỉ có Thuật ngữ & Định nghĩa)
+  List<Map<String, dynamic>> headers = [
+    { "key": "term", "name": "Thuật ngữ", "position": 1 },
+    { "key": "definition", "name": "Định nghĩa", "position": 2 }
+  ];
+
+  List<Map<String, String>> rows = [];
+
+  // 3. Duyệt từng dòng để tách đôi lấy Cột 1 (Term) và Cột 2 (Definition)
+  for (String line in rawLines) {
+    List<String> parts = line.split(termDelimiter);
+
+    if (parts.length >= 2) {
+      String term = parts[0].trim();
+      // Gom phần còn lại làm định nghĩa (đề phòng định nghĩa chứa ký tự trùng delimiter)
+      String definition = parts.sublist(1).join(termDelimiter).trim();
+
+      rows.add({
+        "term": term,
+        "definition": definition
+      });
+    }
+  }
+
+  // 4. Trả về cấu trúc Payload hoàn chỉnh cho API
+  return {
+    "deckTitle": deckTitle,
+    "publicStatus": publicStatus,
+    "parentId": parentId,
+    "headers": headers,
+    "rows": rows
+  };
+}
+IV. KỊCH BẢN ĐIỀU HƯỚNG SAU KHI NHẬN OUTPUT API
+Khi Backend xử lý xong xuôi 6 bước lưu trữ ma trận và cá nhân hóa dưới Database, nó sẽ trả về cục Output thành công.
+
+Lúc này, màn hình Flutter sẽ thực hiện một cú nhảy trải nghiệm (UX Jump) cực kỳ mượt mà:
+
+Tắt hiệu ứng xoay loading.
+
+Hiển thị một thông báo nhanh (SnackBar) màu xanh: "Tạo bộ đề thành công! Đã cấu hình lộ trình Spaced Repetition."
+
+Gọi lệnh Navigator.pushReplacement điều hướng người dùng bay thẳng vào Màn hình chi tiết bộ đề (Deck Detail Screen) của mã bộ đề vừa tạo. Tại đây, giao diện sẽ hiển thị ngay lập tức số lượng thẻ mới tinh sẵn sàng để học, giúp trải nghiệm của người dùng liên tục và không bị đứt gãy.
+
+Phần 2: Dựa trên đặc tả thuật toán dựng cây Anki phân cấp (parent_id) và cấu trúc dữ liệu phẳng (Flat List) được Backend xử lý thành cấu trúc cây (Tree Structure) như phần II, dưới đây là phương án thiết kế chi tiết cho màn hình "My Decks" (Bộ đề của tôi) trên Flutter để kết nối với API GET http://localhost:8080/api/v1/decks/my-decks.
+I. THIẾT KẾ GIAO DIỆN MÀN HÌNH (UI/UX FLOW)
+Màn hình My Decks cần phản ánh được tính phân cấp đệ quy vô hạn tầng của Anki nhưng vẫn phải giữ được sự gọn gàng, dễ nhìn. Giao diện được chia thành các khu vực chức năng chính như sau:
+
+1. Thanh điều hướng & Tìm kiếm (Header & Search Bar)
+Tiêu đề màn hình: Text("Thư viện của tôi") lớn, đậm.
+
+Thanh tìm kiếm (SearchView): Giúp người dùng lọc nhanh tên bộ đề cần học mà không cần phải tự mở từng cây thư mục ra tìm kiếm.
+
+Nút Action (+): Nút góc phải trên cùng để mở rộng tùy chọn: "Tạo bộ đề thủ công" hoặc "Bulk Import (Dán từ Quizlet)".
+
+2. Tab lọc nhanh (Quick Filter Tabs)
+Sử dụng một hàng ChoiceChip cố định ngay dưới thanh tìm kiếm:
+
+Tất cả (Hiện toàn bộ cây thư mục).
+
+Yêu thích ⭐ (Chỉ hiển thị các bộ đề có isFavorite: true nhằm tối ưu hóa dựa trên bảng user_decks).
+
+Gần đây 🕒 (Sắp xếp cây thư mục dựa theo mảng lastStudiedAt từ mới nhất đến cũ nhất).
+
+3. Khu vực danh sách cây phân cấp (Hierarchical Tree View)
+Đây là khu vực trọng tâm của màn hình, sử dụng cơ chế dựng UI đệ quy để hiển thị subDecks.
+
+Trường hợp danh sách trống (data.isEmpty): Hiển thị một ảnh minh họa vector nhẹ nhàng kèm dòng chữ: "Thư viện trống rỗng. Hãy tạo bộ đề đầu tiên hoặc sử dụng tính năng Bulk Import để bắt đầu học tập!"
+
+Trường hợp có dữ liệu: Sử dụng một ListView.builder để duyệt qua danh sách các bộ đề gốc (những node có parentId: null).
+
+ II. THUẬT TOÁN RENDER WIDGET ĐỆ QUY (FRONTEND LOGIC)
+Để render ra các tầng con thụt lề vô hạn mà không bị giới hạn số tầng, các bạn Frontend Flutter nên viết riêng một Custom Widget tự gọi chính nó (Recursive Component) thay vì viết các vòng lặp for lồng nhau thủ công.
+
+import 'package:flutter/material.dart';
+
+// Model Class đơn giản để hứng dữ liệu từ API của bạn
+class DeckNode {
+  final int deckId;
+  final String title;
+  final int? parentId;
+  final String publicStatus;
+  final bool isFavorite;
+  final String? lastStudiedAt;
+  final List<DeckNode> subDecks;
+
+  DeckNode({
+    required this.deckId,
+    required this.title,
+    this.parentId,
+    required this.publicStatus,
+    required this.isFavorite,
+    this.lastStudiedAt,
+    required this.subDecks,
+  });
+
+  factory DeckNode.fromJson(Map<String, dynamic> json) {
+    var list = json['subDecks'] as List;
+    List<DeckNode> subList = list.map((i) => DeckNode.fromJson(i)).toList();
+    return DeckNode(
+      deckId: json['deckId'],
+      title: json['title'],
+      parentId: json['parentId'],
+      publicStatus: json['publicStatus'],
+      isFavorite: json['isFavorite'],
+      lastStudiedAt: json['lastStudiedAt'],
+      subDecks: subList,
+    );
+  }
+}
+
+// 🟢 WIDGET ĐỆ QUY CHÍ MẠNG: Dựng cây bộ đề không lo lỗi giao diện
+class AnkiDeckTreeWidget extends StatelessWidget {
+  final DeckNode deck;
+  final int depth; // Độ sâu của tầng để tính toán khoảng thụt lề (Padding)
+
+  const AnkiDeckTreeWidget({
+    Key? key,
+    required this.deck,
+    this.depth = 0
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    // Khoảng cách thụt lề tự động tăng dần theo độ sâu của tầng bộ đề con
+    double leftPadding = depth * 16.0;
+
+    // Nếu bộ đề này có chứa bộ đề con bên trong -> Sử dụng ExpansionTile để đóng/mở
+    if (deck.subDecks.isNotEmpty) {
+      return Padding(
+        padding: EdgeInsets.only(left: leftPadding),
+        child: ExpansionTile(
+          leading: const Icon(Icons.folder_open, color: Colors.amber),
+          title: Text(
+            deck.title,
+            style: TextStyle(
+              fontWeight: depth == 0 ? FontWeight.bold : FontWeight.w500,
+              fontSize: depth == 0 ? 16 : 14,
+            ),
+          ),
+          trailing: _buildTrailingActions(context),
+          // 🚀 ĐỆ QUY: Tự gọi lại chính nó để vẽ các bộ đề con bên trong mảng subDecks
+          children: deck.subDecks.map((subChild) {
+            return AnkiDeckTreeWidget(deck: subChild, depth: depth + 1);
+          }).toList(),
+        ),
+      );
+    }
+
+    // Nếu đây là bộ đề lá (bộ đề cuối cùng không chứa con nữa) -> Dùng ListTile phẳng thông thường
+    return Padding(
+      padding: EdgeInsets.only(left: leftPadding),
+      child: ListTile(
+        leading: const Icon(Icons.style, color: Colors.blue), // Icon xấp bài Flashcard
+        title: Text(
+          deck.title,
+          style: TextStyle(fontSize: 14, color: Colors.blackDE),
+        ),
+        trailing: _buildTrailingActions(context),
+        onTap: () {
+          // Luồng III: Click vào deck chuyển hướng sang màn hình học tập của Deck đó
+          _navigateToStudyRoom(context, deck.deckId);
+        },
+      ),
+    );
+  }
+
+  // Các nút tiện ích nhỏ bên cạnh mỗi bộ đề (⭐ Yêu thích, Trạng thái chia sẻ)
+  Widget _buildTrailingActions(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          deck.publicStatus == 'public' ? Icons.public : Icons.lock_outline,
+          size: 16,
+          color: Colors.grey,
+        ),
+        const SizedBox(width: 8),
+        Icon(
+          deck.isFavorite ? Icons.star : Icons.star_border,
+          color: deck.isFavorite ? Colors.orange : Colors.grey,
+        ),
+      ],
+    );
+  }
+
+  void _navigateToStudyRoom(BuildContext context, int deckId) {
+    // Điều hướng sang Luồng III bằng Navigator
+    print("Bay sang màn hình chi tiết học tập của Deck ID: $deckId");
+  }
+}
+
+III. ĐẦU VÀO (INPUT) VÀ TRẠNG THÁI KHỞI TẠO (STATE LIFE CYCLE)Để đảm bảo màn hình khi mở lên không bị trắng hoặc giật lag, quy trình tương tác mạng của Frontend sẽ diễn ra như sau:Giai đoạn initState() (Kích hoạt màn hình):App Flutter thực hiện gọi hàm call API GET http://localhost:8080/api/v1/decks/my-decks.Gắn header Authorization: Bearer <JWT_TOKEN> lấy từ kho lưu trữ bảo mật của máy.Giai đoạn Loading State:Trong lúc chờ đợi dữ liệu đổ về từ máy chủ, hiển thị một danh sách các khối xám chuyển động nhẹ (Skeleton Shimmer Effect) có cấu trúc dạng thụt lề giả lập để tạo cảm giác app chạy cực kỳ nhanh và chuyên nghiệp.Giai đoạn Success State (Nhận Output của Phần II):Ép kiểu mảng dữ liệu JSON nhận được thành mảng các Object danh sách lớp DeckNode.Gọi hàm setState() hoặc cập nhật State Management để kích hoạt ListView.builder vẽ ra các AnkiDeckTreeWidget.
+IV. KỊCH BẢN UX PHỐI HỢP KHI XÓA HOẶC IMPORT BÀINhờ việc bạn đồng bộ hóa kiến trúc màn hình này với các phần khác (I, III, IV), trải nghiệm tại trang My Decks sẽ khép kín cực kỳ chặt chẽ:Tương tác với Luồng I (Bulk Import): Khi user dán chữ tạo thành công Deck số 88, màn hình Bulk Upload tự hủy và chuyển hướng user vào trang học tập. Khi user nhấn Back quay lại trang My Decks, hàm refresh sẽ tự động chạy lại API my-decks $\rightarrow$ Deck mới xuất hiện ngay trên cây thư mục.Tương tác với Luồng IV (Hard Delete): Khi user đang xem cây bộ đề, họ giữ chặt (Long press) một item hoặc bấm nút xóa vĩnh viễn $\rightarrow$ Flutter kích hoạt Confirm Dialog như đặc tả $\rightarrow$ Nhận phản hồi thành công từ API DELETE $\rightarrow$ Frontend chủ động xóa Object đó ra khỏi mảng dữ liệu tại máy $\rightarrow$ Widget cây tự động co lại, bộ đề biến mất ngay lập tức trước mắt user mà không cần quay vòng tròn tải lại toàn bộ trang.
+
+Phần 3: Để xây dựng màn hình Study (Phòng học thông minh) tương thích hoàn hảo giữa kiến trúc dữ liệu Ma trận Đa chiều cá nhân hóa (đầu ra của API GET /api/v1/decks/<deck_id>/study) và ý tưởng giao diện Bong bóng Tab mép phải (Edge Bubbles), đội Frontend Flutter cần nắm rõ cấu trúc phân rã UI và sơ đồ dây (Wiring dữ liệu) dưới đây.
+I. PHƯƠNG ÁN THIẾT KẾ CẤU TRÚC GIAO DIỆN (UI ARCHITECTURE)Giao diện màn hình Học tập sẽ được chia làm 3 tầng Widget biệt lập nhưng tương tác trực tiếp với nhau thông qua State:1. Tầng Nền chính (Main Flashcard Canvas)Vị trí: Nằm chính giữa màn hình, chiếm $80\%$ diện tích hiển thị.Nhiệm vụ: Chỉ render nội dung của 2 nhóm thuộc tính cốt lõi (Mặt trước và Mặt sau).Mặt trước: Hiển thị dữ liệu của phần tử mang personalizedRank: "A" trong mảng personalizedHeaders.Mặt sau: Hiển thị dữ liệu của phần tử mang personalizedRank: "B" khi người dùng chạm vào thẻ để lật bài (Flip Animation).
+2. Tầng Cột Bong Bóng Mép Phải (Edge Bubbles Sidebar)Vị trí: Cố định dọc theo mép phải màn hình, nằm phía dưới nút cấu hình Bánh răng.Nhiệm vụ: Lặp qua mảng personalizedHeaders từ vị trí chỉ mục số 2 trở đi (tức là từ Rank C đến tối đa Rank H do giới hạn 6 bong bóng).Cấu trúc UI: Sử dụng một Column (hoặc ListView thu nhỏ chặn cuộn nếu số lượng từ 3-6) chứa các Widget InkWell bo tròn góc lệch sang trái để tạo hình dạng nửa vầng trăng nhô ra từ mép màn hình. Trên bề mặt in chuỗi groupName (Ví dụ: "Hiragana", "Hán Việt", "Ví dụ").3. Tầng Pop-up Thẻ Phụ (Mini-Flashcard Pop-up Note)Vị trí: Định vị tuyệt đối (Positioned) che một góc phía trên bên phải của tấm Flashcard chính (như hình phác thảo của bạn).Nhiệm vụ: Hiển thị nội dung chi tiết của bong bóng đang được chọn.Thiết kế hình ảnh: Được thiết kế như một tấm Flashcard thu nhỏ (Miniature) có đổ bóng nhẹ (BoxShadow), bo góc đồng điệu với thẻ chính.Bên trong ruột: Đọc cấu trúc jsonb của content. Nếu có trường text, vẽ text căn giữa. Nếu có audio_url, hiện thêm icon loa nhỏ cho phép ấn vào để phát âm thanh.
+II. SƠ ĐỒ ÁNH XẠ DỮ LIỆU VÀ GIẢI THÍCH LUỒNG CODE (DATA WIRING LOGIC)Khi ứng dụng Flutter gọi API GET http://localhost:8080/api/v1/decks/12/study thành công và nhận về cục JSON, code quản lý trạng thái màn hình học cần chạy theo cơ chế sau:1. Khởi tạo State ban đầu (State Initialization)Dartint currentCardIndex = 0; // Chỉ mục tấm thẻ hiện tại đang học trong mảng flashcards
+        int? activeGroupIdForPopup; // ID của Group đang được mở pop-up (Bằng null nếu không mở cái nào)
+        bool isCardFlipped = false; // Trạng thái lật của tấm thẻ chính (true = mặt sau, false = mặt trước)
+        2. Giải thuật bóc tách phần tử hiển thị dựa trên Rank cá nhân hóaĐể render đúng giao diện giống hệt hình vẽ phác thảo của bạn, code Flutter sẽ chia dữ liệu làm 3 luồng xử lý:🔹 Luồng A: Xác định Mặt Trước và Mặt Sau của thẻ chínhDart// Tìm cấu hình header cho mặt trước (Rank A) và mặt sau (Rank B)
+        final headerFront = response.personalizedHeaders.firstWhere((h) => h.personalizedRank == 'A');
+        final headerBack = response.personalizedHeaders.firstWhere((h) => h.personalizedRank == 'B');
+
+        // Trích xuất từ hiện tại dựa vào biến chỉ mục vòng lặp
+        final currentCard = response.flashcards[currentCardIndex];
+
+        // Tìm nội dung text thực tế tương ứng với mặt trước và mặt sau
+        final textFront = currentCard.cardData.firstWhere((c) => c.groupId == headerFront.groupId).content.text;
+        final textBack = currentCard.cardData.firstWhere((c) => c.groupId == headerBack.groupId).content.text;
+        🔹 Luồng B: Tạo danh sách tối đa 6 Bong Bóng mép phảiDuyệt mảng personalizedHeaders, loại bỏ 2 phần tử đầu (A và B), lấy tối đa 6 phần tử tiếp theo để dựng Widget cột bong bóng:Dartfinal bubbleHeaders = response.personalizedHeaders
+            .where((h) => h.personalizedRank != 'A' && h.personalizedRank != 'B')
+            .take(6) // Khống chế cứng giới hạn tối đa 6 bong bóng phòng rách lưới UI
+            .toList();
+        🔹 Luồng C: Đổ ruột dữ liệu vào Pop-up Thẻ Phụ khi bấm Bong BóngKhi người dùng tap vào một bong bóng (Ví dụ: Bong bóng Hiragana có groupId: 36), gán activeGroupIdForPopup = 36.Widget Pop-up Thẻ Phụ lập tức được kích hoạt hiển thị dựa trên câu lệnh điều kiện:Dartif (activeGroupIdForPopup != null) {
+          // Tìm kiếm ô nội dung (cell) nằm trong tấm thẻ hiện tại có trùng groupId đang active
+          final activeCell = currentCard.cardData.firstWhere(
+            (c) => c.groupId == activeGroupIdForPopup,
+            orElse: () => null
+          );
+
+          if (activeCell != null) {
+            // Render ra Mini-Flashcard hiển thị nội dung activeCell.content.text
+            // Thêm nút bấm phát âm thanh nếu activeCell.content.audioUrl != null
+          }
+        }
+III. KỊCH BẢN ĐIỀU HƯỚNG VÀ TRẢI NGHIỆM CHI TIẾT (UX STATE MACHINE)Để màn hình học tập vận hành mượt mà, không giật lag và tuân thủ đúng logic thuật toán xếp bài thông minh của Anki/SM-2, bạn phải xử lý nghiêm ngặt các kịch bản hành vi sau:Kịch bản 1: Hành vi lật bài và tra cứu bổ trợKhi user nhìn thấy mặt trước ("Ký ức"), họ chưa biết cách đọc liền bấm vào bong bóng "Hiragana". Pop-up thẻ nhỏ hiện ra chữ "きおく".User bấm vào vùng trống của thẻ lớn $\rightarrow$ Thẻ lớn lật mặt ra chữ Kanji "記憶" (isCardFlipped = true). Lúc này, Pop-up nhỏ vẫn giữ nguyên trạng thái hiển thị để user đối chiếu đồng thời cả chữ Kanji và cách đọc Hiragana.Kịch bản 2: Hành vi chuyển đổi thẻ (Chuyển từ)Khi user bấm một trong ba nút chấm điểm thuật toán ở thanh công cụ dưới đáy: HARD, NORMAL, hoặc EASY:Gọi API cập nhật chỉ số SM-2 (status, interval, ease_factor) của tấm thẻ hiện tại ra sau nền ngầm.Lập tức reset các biến trạng thái tại máy:currentCardIndex++ (Tăng chỉ mục để chuyển sang từ vựng tiếp theo trong mảng).isCardFlipped = false (Quay tấm thẻ chính về lại mặt trước).activeGroupIdForPopup = null (Đóng hoàn toàn Pop-up thẻ nhỏ, đưa toàn bộ cụm bong bóng mép phải về trạng thái ẩn).Tấm thẻ mới tinh tiếp theo xuất hiện (Ví dụ: Mặt trước hiện chữ "Con chó"). Giao diện sạch sẽ hoàn toàn để bắt đầu chu kỳ học mới.

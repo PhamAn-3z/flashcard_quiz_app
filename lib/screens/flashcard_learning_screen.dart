@@ -15,29 +15,48 @@ class FlashcardLearningScreen extends StatefulWidget {
 }
 
 class _FlashcardLearningScreenState extends State<FlashcardLearningScreen> {
-  late List<Flashcard> _cards;
+  DeckStudyData? _studyData;
   int _currentIndex = 0;
-  bool _isFlipped = false;
-  bool _showReading = false;
+  int? _activeGroupIdForPopup;
+  bool _isCardFlipped = false;
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _cards = context.read<DeckProvider>().getMockCardsForDeck(widget.deckId);
+    _loadStudyData();
+  }
+
+  Future<void> _loadStudyData() async {
+    final data = await context.read<DeckProvider>().fetchDeckStudyData(widget.deckId);
+    if (mounted) {
+      setState(() {
+        _studyData = data;
+        _isLoading = false;
+      });
+    }
   }
 
   void _flipCard() {
     setState(() {
-      _isFlipped = !_isFlipped;
+      _isCardFlipped = !_isCardFlipped;
     });
   }
 
-  void _nextCard() {
-    if (_currentIndex < _cards.length - 1) {
+  Future<void> _submitRating(String rating) async {
+    if (_studyData == null) return;
+    
+    final currentCard = _studyData!.flashcards[_currentIndex];
+    
+    // 1. Call API in background
+    context.read<DeckProvider>().updateStudyProgress(currentCard.positionId, rating);
+
+    // 2. Local state reset for next card
+    if (_currentIndex < _studyData!.flashcards.length - 1) {
       setState(() {
         _currentIndex++;
-        _isFlipped = false;
-        _showReading = false;
+        _isCardFlipped = false;
+        _activeGroupIdForPopup = null;
       });
     } else {
       Navigator.pop(context);
@@ -49,20 +68,35 @@ class _FlashcardLearningScreenState extends State<FlashcardLearningScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final card = _cards[_currentIndex];
+    if (_isLoading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    if (_studyData == null || _studyData!.flashcards.isEmpty) {
+      return Scaffold(
+        appBar: AppBar(title: Text(widget.deckName)),
+        body: const Center(child: Text('Không có nội dung để học.')),
+      );
+    }
+
+    final currentCard = _studyData!.flashcards[_currentIndex];
+    final headers = _studyData!.headers;
+    
+    // Rank A = Front, Rank B = Back
+    final headerFront = headers.firstWhere((h) => h.personalizedRank == 'A', orElse: () => headers[0]);
+    final headerBack = headers.firstWhere((h) => h.personalizedRank == 'B', orElse: () => headers.length > 1 ? headers[1] : headers[0]);
+    
+    // Other ranks (C to H) for sidebar bubbles
+    final bubbleHeaders = headers.where((h) => h.personalizedRank != 'A' && h.personalizedRank != 'B').take(6).toList();
 
     return Scaffold(
       backgroundColor: const Color(0xFFF1F5F9),
       appBar: AppBar(
-        title: Text(widget.deckName, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+        title: Text(_studyData!.title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
         centerTitle: true,
         backgroundColor: Colors.white,
         foregroundColor: AppColors.textPrimary,
         elevation: 0,
-        actions: [
-          const Icon(Icons.stars_rounded, color: AppColors.accent),
-          const SizedBox(width: 20),
-        ],
       ),
       body: Column(
         children: [
@@ -71,11 +105,11 @@ class _FlashcardLearningScreenState extends State<FlashcardLearningScreen> {
             child: Stack(
               alignment: Alignment.center,
               children: [
-                // Flashcard Main Area
+                // 1. Tầng Nền chính (Main Flashcard Canvas)
                 GestureDetector(
                   onTap: _flipCard,
                   child: Container(
-                    width: MediaQuery.of(context).size.width * 0.85,
+                    width: MediaQuery.of(context).size.width * 0.80, // Chiếm 80% diện tích
                     height: MediaQuery.of(context).size.height * 0.5,
                     decoration: BoxDecoration(
                       color: Colors.white,
@@ -89,62 +123,56 @@ class _FlashcardLearningScreenState extends State<FlashcardLearningScreen> {
                       ],
                     ),
                     child: Center(
-                      child: Text(
-                        _isFlipped ? card.meaning : card.kanji,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: _isFlipped ? 32 : 60,
-                          fontWeight: FontWeight.bold,
+                      child: Padding(
+                        padding: const EdgeInsets.all(24.0),
+                        child: Text(
+                          _isCardFlipped 
+                            ? currentCard.getCellText(headerBack.groupId)
+                            : currentCard.getCellText(headerFront.groupId),
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: _isCardFlipped ? 32 : 50,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ),
                 
-                // Reading Overlay (Small popup hint in Mockup 4)
-                if (!_isFlipped && _showReading)
+                // 3. Tầng Pop-up Thẻ Phụ (Mini-Flashcard Pop-up Note)
+                if (_activeGroupIdForPopup != null)
                   Positioned(
-                    top: 40,
-                    right: 40,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10)],
-                      ),
-                      child: Text(card.hiragana, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                    ),
+                    top: 20,
+                    right: MediaQuery.of(context).size.width * 0.15,
+                    child: _buildMiniFlashcard(currentCard, bubbleHeaders),
                   ),
 
-                // Side Tabs (Mockup 2, 3)
+                // 2. Tầng Cột Bong Bóng Mép Phải (Edge Bubbles Sidebar)
                 Positioned(
                   right: 0,
                   child: Column(
-                    children: [
-                      _sideTab('Hiragana', () => setState(() => _showReading = !_showReading)),
-                      const SizedBox(height: 12),
-                      _sideTab('Hán Việt', () {}),
-                    ],
+                    mainAxisSize: MainAxisSize.min,
+                    children: bubbleHeaders.map((header) => _buildEdgeBubble(header)).toList(),
                   ),
                 ),
               ],
             ),
           ),
           
-          // Progress and Rating (Mockup 2 bottom)
+          // Bottom Rating Buttons
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
             child: Column(
               children: [
-                Text('${_currentIndex + 1} / ${_cards.length}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                Text('${_currentIndex + 1} / ${_studyData!.flashcards.length}', style: const TextStyle(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 24),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-                    _ratingButton('HARD', Colors.red, _nextCard),
-                    _ratingButton('NORMAL', Colors.orange, _nextCard),
-                    _ratingButton('EASY', Colors.green, _nextCard),
+                    _ratingButton('HARD', Colors.red, () => _submitRating('HARD')),
+                    _ratingButton('NORMAL', Colors.orange, () => _submitRating('NORMAL')),
+                    _ratingButton('EASY', Colors.green, () => _submitRating('EASY')),
                   ],
                 ),
               ],
@@ -155,20 +183,76 @@ class _FlashcardLearningScreenState extends State<FlashcardLearningScreen> {
     );
   }
 
-  Widget _sideTab(String label, VoidCallback onTap) {
+  Widget _buildEdgeBubble(PersonalizedHeader header) {
+    bool isActive = _activeGroupIdForPopup == header.groupId;
     return GestureDetector(
-      onTap: onTap,
+      onTap: () {
+        setState(() {
+          _activeGroupIdForPopup = isActive ? null : header.groupId;
+        });
+      },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 20),
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: const BorderRadius.only(topLeft: Radius.circular(16), bottomLeft: Radius.circular(16)),
+          color: isActive ? AppColors.primary : Colors.white,
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(20),
+            bottomLeft: Radius.circular(20),
+          ),
           boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4)],
         ),
         child: RotatedBox(
           quarterTurns: 3,
-          child: Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
+          child: Text(
+            header.groupName,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: isActive ? Colors.white : AppColors.textSecondary,
+            ),
+          ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildMiniFlashcard(Flashcard card, List<PersonalizedHeader> headers) {
+    final activeHeader = headers.firstWhere((h) => h.groupId == _activeGroupIdForPopup);
+    final content = card.cardData.firstWhere((c) => c.groupId == activeHeader.groupId);
+
+    return Container(
+      width: 160,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 15,
+            offset: const Offset(5, 5),
+          )
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            activeHeader.groupName,
+            style: const TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            content.text,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+          if (content.audioUrl != null) ...[
+            const SizedBox(height: 8),
+            const Icon(Icons.volume_up, size: 20, color: AppColors.primary),
+          ]
+        ],
       ),
     );
   }
