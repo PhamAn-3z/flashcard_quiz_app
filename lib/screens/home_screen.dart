@@ -5,6 +5,7 @@ import '../providers/deck_provider.dart';
 import '../utils/constants.dart';
 import 'profile_screen.dart';
 import 'notification_settings_screen.dart';
+import 'quiz_list_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -26,7 +27,7 @@ class HomeScreen extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildQuickMenu(),
+                      _buildQuickMenu(context),
                       const SizedBox(height: 24),
                       _buildFloatingStatsCard(context),
                       const SizedBox(height: 32),
@@ -135,7 +136,7 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildQuickMenu() {
+  Widget _buildQuickMenu(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 20),
       decoration: BoxDecoration(
@@ -145,27 +146,32 @@ class HomeScreen extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _buildMenuIcon(Icons.style_rounded, 'Flashcard', Colors.blue),
-          _buildMenuIcon(Icons.translate_rounded, 'Dịch', Colors.green),
-          _buildMenuIcon(Icons.psychology_rounded, 'Quiz', Colors.red),
-          _buildMenuIcon(Icons.menu_book_rounded, 'Ngữ pháp', Colors.orange),
-          _buildMenuIcon(Icons.school_rounded, 'JLPT', Colors.purple),
+          _buildMenuIcon(Icons.style_rounded, 'Flashcard', Colors.blue, () {}),
+          _buildMenuIcon(Icons.translate_rounded, 'Dịch', Colors.green, () {}),
+          _buildMenuIcon(Icons.psychology_rounded, 'Quiz', Colors.red, () {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const QuizListScreen()));
+          }),
+          _buildMenuIcon(Icons.menu_book_rounded, 'Ngữ pháp', Colors.orange, () {}),
+          _buildMenuIcon(Icons.school_rounded, 'JLPT', Colors.purple, () {}),
         ],
       ),
     );
   }
 
-  Widget _buildMenuIcon(IconData icon, String label, Color color) {
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(16)),
-          child: Icon(icon, color: color, size: 28),
-        ),
-        const SizedBox(height: 8),
-        Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
-      ],
+  Widget _buildMenuIcon(IconData icon, String label, Color color, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(16)),
+            child: Icon(icon, color: color, size: 28),
+          ),
+          const SizedBox(height: 8),
+          Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+        ],
+      ),
     );
   }
 
