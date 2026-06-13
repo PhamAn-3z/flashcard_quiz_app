@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/deck_provider.dart';
@@ -24,6 +25,7 @@ class _BulkImportScreenState extends State<BulkImportScreen> {
 
   bool _isLoading = false;
 
+  List<Map<String, dynamic>> _previewHeaders = [];
   List<Map<String, String>> _previewRows = [];
 
   @override
@@ -46,6 +48,7 @@ class _BulkImportScreenState extends State<BulkImportScreen> {
     if (rawText.isEmpty) {
       setState(() {
         _previewRows = [];
+        _previewHeaders = [];
       });
       return;
     }
@@ -55,23 +58,101 @@ class _BulkImportScreenState extends State<BulkImportScreen> {
 
     if (effectiveCardDelim.isEmpty || effectiveTermDelim.isEmpty) return;
 
+    // 1. Tách văn bản thô thành các dòng
     List<String> rawLines = rawText.split(effectiveCardDelim);
     rawLines.removeWhere((line) => line.trim().isEmpty);
 
+    if (rawLines.isEmpty) {
+      setState(() {
+        _previewRows = [];
+        _previewHeaders = [];
+      });
+      return;
+    }
+
+    // 2. Tìm số lượng group tối đa (Giới hạn 6)
+    int maxFoundGroups = 0;
+    for (String line in rawLines) {
+      int count = line.split(effectiveTermDelim).length;
+      if (count > maxFoundGroups) maxFoundGroups = count;
+    }
+    int groupCount = min(maxFoundGroups, 6);
+
+    // 3. Sinh headers động (Giữ lại tên đã sửa của người dùng nếu có)
+    List<Map<String, dynamic>> headers = [];
+    for (int i = 0; i < groupCount; i++) {
+      int pos = i + 1;
+      String key = "group_$pos";
+      
+      // Tìm xem key này đã tồn tại trong previewHeaders hiện tại chưa để giữ lại "name"
+      String currentName = "Group $pos";
+      for (var h in _previewHeaders) {
+        if (h['key'] == key) {
+          currentName = h['name'];
+          break;
+        }
+      }
+
+      headers.add({
+        "key": key,
+        "name": currentName,
+        "position": pos,
+      });
+    }
+
+    // 4. Sinh rows động map theo headers
     List<Map<String, String>> rows = [];
     for (String line in rawLines) {
       List<String> parts = line.split(effectiveTermDelim);
-      if (parts.length >= 2) {
-        rows.add({
-          "term": parts[0].trim(),
-          "definition": parts.sublist(1).join(effectiveTermDelim).trim(),
-        });
+      Map<String, String> rowMap = {};
+      
+      for (int i = 0; i < groupCount; i++) {
+        String key = "group_${i + 1}";
+        if (i < parts.length) {
+          // Nếu là group cuối cùng, gom hết phần còn lại của line (đề phòng nội dung chứa delimiter)
+          if (i == groupCount - 1 && parts.length > groupCount) {
+             rowMap[key] = parts.sublist(i).join(effectiveTermDelim).trim();
+          } else {
+             rowMap[key] = parts[i].trim();
+          }
+        } else {
+          rowMap[key] = ""; // Ô trống nếu dòng thiếu cột
+        }
       }
+      rows.add(rowMap);
     }
 
     setState(() {
+      _previewHeaders = headers;
       _previewRows = rows;
     });
+  }
+
+  void _editHeaderName(Map<String, dynamic> header) {
+    final controller = TextEditingController(text: header['name']);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Đổi tên ${header['key']}'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(labelText: 'Tên nhóm mới', hintText: 'Ví dụ: Kanji, Hiragana...'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+          ElevatedButton(
+            onPressed: () {
+              setState(() {
+                header['name'] = controller.text;
+              });
+              Navigator.pop(ctx);
+            },
+            child: const Text('Lưu'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _handleImport() async {
@@ -90,10 +171,7 @@ class _BulkImportScreenState extends State<BulkImportScreen> {
       deckTitle: _titleController.text,
       publicStatus: _publicStatus,
       parentId: _parentId,
-      headers: [
-        {"key": "term", "name": "Thuật ngữ", "position": 1},
-        {"key": "definition", "name": "Định nghĩa", "position": 2}
-      ],
+      headers: _previewHeaders,
       rows: _previewRows,
     );
 
@@ -142,7 +220,7 @@ class _BulkImportScreenState extends State<BulkImportScreen> {
               decoration: const InputDecoration(labelText: 'Vị trí phân cấp (Cha)', border: OutlineInputBorder()),
               items: [
                 const DropdownMenuItem(value: null, child: Text('Không có')),
-                ...decks.map((d) => DropdownMenuItem(value: d.id, child: Text(d.name))),
+                ...decks.map((d) => DropdownMenuItem(value: d.id, child: Text(d.title))),
               ],
               onChanged: (val) => setState(() => _parentId = val),
             ),
@@ -154,14 +232,14 @@ class _BulkImportScreenState extends State<BulkImportScreen> {
               maxLines: 8,
               keyboardType: TextInputType.multiline,
               decoration: const InputDecoration(
-                hintText: "Từ 1 [Tab] Định nghĩa 1\nTừ 2 [Tab] Định nghĩa 2",
+                hintText: "Dán dữ liệu từ Excel hoặc Quizlet vào đây...",
                 border: OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 24),
             const Text('3. Cấu hình Ký tự phân tách', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
             const SizedBox(height: 10),
-            const Text('Giữa thuật ngữ và định nghĩa:'),
+            const Text('Giữa các cột trong 1 thẻ:'),
             Row(
               children: [
                 Radio<String>(value: '\t', groupValue: _termDelimiter, onChanged: (v) => setState(() { _termDelimiter = v!; _updatePreview(); })),
@@ -179,7 +257,7 @@ class _BulkImportScreenState extends State<BulkImportScreen> {
                 onChanged: (_) => _updatePreview(),
               ),
             const SizedBox(height: 10),
-            const Text('Giữa các thẻ:'),
+            const Text('Giữa các tấm thẻ:'),
             Row(
               children: [
                 Radio<String>(value: '\n', groupValue: _cardDelimiter, onChanged: (v) => setState(() { _cardDelimiter = v!; _updatePreview(); })),
@@ -198,6 +276,7 @@ class _BulkImportScreenState extends State<BulkImportScreen> {
               ),
             const SizedBox(height: 24),
             Text('4. Xem trước dữ liệu trực tiếp (${_previewRows.length} thẻ)', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+            const Text('Mẹo: Nhấn vào tên cột để đổi tên nhóm (vd: Kanji, Nghĩa...)', style: TextStyle(fontSize: 12, color: Colors.blueGrey, fontStyle: FontStyle.italic)),
             const SizedBox(height: 10),
             if (_previewRows.isEmpty)
               const Text('Không có nội dung để xem trước', style: TextStyle(color: Colors.grey))
@@ -205,14 +284,28 @@ class _BulkImportScreenState extends State<BulkImportScreen> {
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: DataTable(
-                  columns: const [
-                    DataColumn(label: Text('Thuật ngữ')),
-                    DataColumn(label: Text('Định nghĩa')),
-                  ],
-                  rows: _previewRows.map((r) => DataRow(cells: [
-                    DataCell(Text(r['term']!)),
-                    DataCell(Text(r['definition']!)),
-                  ])).toList(),
+                  headingRowColor: WidgetStateProperty.all(Colors.grey.shade100),
+                  columns: _previewHeaders.map((h) => DataColumn(
+                    label: InkWell(
+                      onTap: () => _editHeaderName(h),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(h['name'], style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
+                          const SizedBox(width: 4),
+                          const Icon(Icons.edit, size: 14, color: Colors.blue),
+                        ],
+                      ),
+                    ),
+                  )).toList(),
+                  rows: _previewRows.map((r) => DataRow(
+                    cells: _previewHeaders.map((h) => DataCell(
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 200),
+                        child: Text(r[h['key']] ?? "", overflow: TextOverflow.ellipsis),
+                      )
+                    )).toList()
+                  )).toList(),
                 ),
               ),
             const SizedBox(height: 32),
