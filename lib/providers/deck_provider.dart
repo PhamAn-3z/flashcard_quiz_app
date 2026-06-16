@@ -45,13 +45,12 @@ class DeckProvider with ChangeNotifier {
     _isLoading = true;
     notifyListeners();
     try {
-      final endpoint = _token != null ? '/decks/my-decks' : '/decks/';
+      // Use /my-decks if logged in, otherwise /decks
+      final endpoint = _token != null ? '/decks/my-decks' : '/decks';
       final response = await _dio.get(endpoint);
 
       if (response.statusCode == 200) {
-        final List<dynamic> data = response.data is List
-            ? response.data
-            : (response.data['data'] ?? []);
+        final List<dynamic> data = response.data['data'] ?? [];
         _decks = data.map((item) => Deck.fromJson(item)).toList();
       }
     } catch (e) {
@@ -59,6 +58,66 @@ class DeckProvider with ChangeNotifier {
     } finally {
       _isLoading = false;
       notifyListeners();
+    }
+  }
+
+  Future<void> fetchMyDecks() async {
+    _isLoading = true;
+    notifyListeners();
+    try {
+      final response = await _dio.get('/decks/my-decks');
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = response.data['data'] ?? [];
+        _decks = data.map((item) => Deck.fromJson(item)).toList();
+      }
+    } catch (e) {
+      debugPrint('Error fetching my decks: $e');
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> toggleFavorite(int deckId, bool isFavorite) async {
+    try {
+      final response = await _dio.patch('/decks/$deckId/toggle-favorite', data: {
+        'isFavorite': isFavorite,
+      });
+      if (response.statusCode == 200) {
+        // Refresh local data
+        await fetchDecks();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      debugPrint('Error toggling favorite: $e');
+      return false;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> fetchComments(int deckId) async {
+    try {
+      final response = await _dio.get('/decks/$deckId/comments');
+      if (response.statusCode == 200) {
+        return List<Map<String, dynamic>>.from(response.data['data'] ?? []);
+      }
+    } catch (e) {
+      debugPrint('Error fetching comments: $e');
+    }
+    return [];
+  }
+
+  Future<bool> addComment(int deckId, String content, {int? parentCommentId}) async {
+    try {
+      final response = await _dio.post('/decks/$deckId/comments', data: {
+        'content': content,
+        'parentCommentId': parentCommentId,
+      });
+      return response.statusCode == 201;
+    } catch (e) {
+      debugPrint('Error adding comment: $e');
+      return false;
     }
   }
 

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../models/flashcard.dart';
 import '../providers/deck_provider.dart';
 import '../utils/constants.dart';
+import 'comments_screen.dart';
 
 class FlashcardLearningScreen extends StatefulWidget {
   final int deckId;
@@ -82,6 +83,13 @@ class _FlashcardLearningScreenState extends State<FlashcardLearningScreen> {
     final currentCard = _studyData!.flashcards[_currentIndex];
     final headers = _studyData!.headers;
     
+    if (headers.isEmpty) {
+      return Scaffold(
+        appBar: AppBar(title: Text(_studyData!.title)),
+        body: const Center(child: Text('Bộ thẻ này chưa được cấu hình tiêu đề.')),
+      );
+    }
+    
     // Rank A = Front, Rank B = Back
     final headerFront = headers.firstWhere((h) => h.personalizedRank == 'A', orElse: () => headers[0]);
     final headerBack = headers.firstWhere((h) => h.personalizedRank == 'B', orElse: () => headers.length > 1 ? headers[1] : headers[0]);
@@ -97,6 +105,23 @@ class _FlashcardLearningScreenState extends State<FlashcardLearningScreen> {
         backgroundColor: Colors.white,
         foregroundColor: AppColors.textPrimary,
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.comment_outlined),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => CommentsScreen(
+                    deckId: widget.deckId,
+                    deckTitle: _studyData!.title,
+                  ),
+                ),
+              );
+            },
+          ),
+          const SizedBox(width: 8),
+        ],
       ),
       body: Column(
         children: [

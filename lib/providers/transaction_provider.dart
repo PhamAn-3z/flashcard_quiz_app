@@ -29,6 +29,37 @@ class TransactionProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
 
+  // Áp dụng mã giảm giá
+  Future<Map<String, dynamic>?> validatePromoCode(String code) async {
+    try {
+      final response = await _dio.get('/promo-codes/$code');
+      if (response.statusCode == 200) {
+        return response.data['data']; // Trả về thông tin mã giảm giá (id, sales, ...)
+      }
+    } catch (e) {
+      _error = "Mã giảm giá không hợp lệ hoặc đã hết hạn.";
+    }
+    return null;
+  }
+
+  // Tạo mã giảm giá mới (đổi từ XP)
+  Future<Map<String, dynamic>?> createVoucher(double discountFactor) async {
+    try {
+      final response = await _dio.post('/promo-codes', data: {
+        'sales': discountFactor,
+        'Expired': false,
+        'dayExpired': DateTime.now().add(const Duration(days: 7)).toIso8601String().split('T')[0],
+      });
+
+      if (response.statusCode == 200) {
+        return response.data['data'];
+      }
+    } catch (e) {
+      _error = "Lỗi khi tạo mã giảm giá.";
+    }
+    return null;
+  }
+
   // Lấy danh sách gói Membership từ BE
   Future<void> fetchMembershipPlans() async {
     _isLoading = true;
@@ -105,6 +136,7 @@ class TransactionProvider with ChangeNotifier {
     required String userId,
     required int membershipId,
     required double amount,
+    int? promoCodeId,
   }) async {
     if (userId == '0' || userId.isEmpty) {
       _error = "Lỗi: Không tìm thấy thông tin người dùng.";
@@ -117,11 +149,17 @@ class TransactionProvider with ChangeNotifier {
       notifyListeners();
 
       // Đảm bảo dữ liệu gửi đi sạch sẽ nhất
-      final response = await _dio.post('/vnpay/create', data: {
+      final Map<String, dynamic> requestData = {
         'user_id': int.parse(userId),
         'membershipId': membershipId,
         'paymentMethod': 'vnpay',
-      });
+      };
+
+      if (promoCodeId != null) {
+        requestData['promoCodeId'] = promoCodeId;
+      }
+
+      final response = await _dio.post('/vnpay/create', data: requestData);
 
       if (response.statusCode == 200) {
         final resData = response.data['data'];

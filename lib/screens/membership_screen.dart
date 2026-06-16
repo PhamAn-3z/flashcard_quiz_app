@@ -17,6 +17,8 @@ class MembershipScreen extends StatefulWidget {
 
 class _MembershipScreenState extends State<MembershipScreen> {
   int? _selectedPlanId;
+  final TextEditingController _promoController = TextEditingController();
+  Map<String, dynamic>? _appliedPromo;
   final currencyFormat = NumberFormat.currency(locale: 'vi_VN', symbol: 'đ');
 
   @override
@@ -58,6 +60,8 @@ class _MembershipScreenState extends State<MembershipScreen> {
                   else
                     ...transactionProvider.plans.map((plan) => _buildPlanCard(plan)),
                   const SizedBox(height: 32),
+                  _buildXPExchangeSection(authProvider, transactionProvider),
+                  const SizedBox(height: 24),
                   _buildPromoCodeSection(),
                   const SizedBox(height: 40),
                   _buildPaymentButton(authProvider, transactionProvider),
@@ -148,6 +152,91 @@ class _MembershipScreenState extends State<MembershipScreen> {
     );
   }
 
+  Widget _buildXPExchangeSection(AuthProvider auth, TransactionProvider trans) {
+    final int userXP = auth.userStats?.totalExp ?? 0;
+    const int exchangeRate = 1000; // 1000 XP = 50% discount
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF1F5F9),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppColors.primary.withOpacity(0.1)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.stars_rounded, color: AppColors.accent),
+              const SizedBox(width: 8),
+              const Text('Đổi XP lấy Ưu đãi', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+              const Spacer(),
+              Text('$userXP XP', style: const TextStyle(fontWeight: FontWeight.w900, color: AppColors.primary)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            'Sử dụng 1,000 XP để đổi lấy Voucher giảm giá 50% cho gói hội viên.',
+            style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton(
+              onPressed: userXP < exchangeRate || _appliedPromo != null
+                  ? null
+                  : () => _handleXPExchange(auth, trans, exchangeRate),
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: AppColors.primary),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: const Text('ĐỔI 1,000 XP LẤY GIẢM 50%', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _handleXPExchange(AuthProvider auth, TransactionProvider trans, int amount) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Xác nhận đổi XP'),
+        content: Text('Bạn có chắc chắn muốn dùng $amount XP để đổi Voucher giảm giá 50%?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
+          ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Đổi ngay')),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      final success = await auth.spendXP(amount);
+      if (success) {
+        final voucher = await trans.createVoucher(0.5); // Giảm 50%
+        if (voucher != null) {
+          setState(() {
+            _appliedPromo = voucher;
+            _promoController.text = voucher['id'].toString();
+          });
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Đã đổi XP và áp dụng mã giảm giá thành công!')),
+            );
+          }
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Đổi XP thất bại. Vui lòng thử lại.'), backgroundColor: Colors.red),
+          );
+        }
+      }
+    }
+  }
+
   Widget _buildSectionHeader(String title) {
     return Align(
       alignment: Alignment.centerLeft,
@@ -228,24 +317,63 @@ class _MembershipScreenState extends State<MembershipScreen> {
   }
 
   Widget _buildPromoCodeSection() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: TextField(
-        decoration: InputDecoration(
-          hintText: 'Nhập mã giảm giá (nếu có)',
-          hintStyle: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
-          border: InputBorder.none,
-          suffixIcon: TextButton(
-            onPressed: () {},
-            child: const Text('Áp dụng', style: TextStyle(fontWeight: FontWeight.bold)),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+          ),
+          child: TextField(
+            controller: _promoController,
+            decoration: InputDecoration(
+              hintText: 'Nhập mã giảm giá (nếu có)',
+              hintStyle: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+              border: InputBorder.none,
+              suffixIcon: TextButton(
+                onPressed: () async {
+                  final code = _promoController.text.trim();
+                  if (code.isEmpty) return;
+                  
+                  final promo = await context.read<TransactionProvider>().validatePromoCode(code);
+                  if (promo != null) {
+                    setState(() {
+                      _appliedPromo = promo;
+                    });
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Đã áp dụng mã giảm giá: Giảm ${(100 - (promo['sales'] * 100)).toInt()}%')),
+                    );
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Mã giảm giá không hợp lệ.'), backgroundColor: Colors.red),
+                    );
+                  }
+                },
+                child: const Text('Áp dụng', style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+            ),
           ),
         ),
-      ),
+        if (_appliedPromo != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 8, left: 8),
+            child: Row(
+              children: [
+                const Icon(Icons.check_circle, color: Colors.green, size: 16),
+                const SizedBox(width: 4),
+                Text('Đã áp dụng mã giảm giá', style: TextStyle(color: Colors.green[700], fontSize: 12, fontWeight: FontWeight.bold)),
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: () => setState(() => _appliedPromo = null),
+                  child: const Icon(Icons.cancel, color: Colors.grey, size: 16),
+                ),
+              ],
+            ),
+          ),
+      ],
     );
   }
 
@@ -287,6 +415,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
       userId: auth.user!.id,
       membershipId: plan.id,
       amount: plan.price,
+      promoCodeId: _appliedPromo?['id'],
     );
 
     if (result != null) {

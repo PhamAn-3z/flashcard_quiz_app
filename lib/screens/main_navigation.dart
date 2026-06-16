@@ -6,6 +6,7 @@ import 'home_screen.dart';
 import 'profile_screen.dart';
 import 'deck_list_screen.dart';
 import 'quiz_list_screen.dart';
+import 'chat_list_screen.dart';
 
 class MainNavigation extends StatefulWidget {
   const MainNavigation({super.key});
@@ -16,13 +17,6 @@ class MainNavigation extends StatefulWidget {
 
 class _MainNavigationState extends State<MainNavigation> {
   int _currentIndex = 0;
-
-  final List<Widget> _screens = [
-    const HomeScreen(),
-    const DeckListScreen(),
-    const QuizListScreen(),
-    const ProfileScreen(),
-  ];
 
   @override
   void initState() {
@@ -35,10 +29,24 @@ class _MainNavigationState extends State<MainNavigation> {
 
   @override
   Widget build(BuildContext context) {
+    final List<Widget> screens = [
+      const HomeScreen(),
+      const DeckListScreen(),
+      const QuizListScreen(),
+      const ChatListScreen(),
+      const ProfileScreen(),
+    ];
+
+    // Đảm bảo index luôn hợp lệ
+    int safeIndex = _currentIndex;
+    if (safeIndex >= screens.length) {
+      safeIndex = 0;
+    }
+
     return Scaffold(
       body: IndexedStack(
-        index: _currentIndex,
-        children: _screens,
+        index: safeIndex,
+        children: screens,
       ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
@@ -66,6 +74,11 @@ class _MainNavigationState extends State<MainNavigation> {
             icon: Icon(Icons.quiz_outlined),
             activeIcon: Icon(Icons.quiz),
             label: 'Quiz',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.chat_bubble_outline_rounded),
+            activeIcon: Icon(Icons.chat_bubble_rounded),
+            label: 'Tin nhắn',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person_outline),

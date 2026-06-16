@@ -6,6 +6,8 @@ import '../utils/constants.dart';
 import 'flashcard_learning_screen.dart';
 import 'bulk_import_screen.dart';
 
+import 'package:intl/intl.dart';
+
 class DeckListScreen extends StatefulWidget {
   const DeckListScreen({super.key});
 
@@ -32,71 +34,52 @@ class _DeckListScreenState extends State<DeckListScreen> {
     super.dispose();
   }
 
-  List<Deck> _filterDecks(List<Deck> decks) {
-    List<Deck> filtered = decks;
+  List<Deck> _filterAndSortDecks(List<Deck> decks) {
+    List<Deck> processed = [];
+    
+    for (var deck in decks) {
+      // 1. Filter by search
+      bool matchesSearch = deck.title.toLowerCase().contains(_searchQuery.toLowerCase());
+      List<Deck> filteredSubs = _filterAndSortDecks(deck.subDecks);
 
-    if (_searchQuery.isNotEmpty) {
-      filtered = _filterBySearch(filtered, _searchQuery);
+      if (matchesSearch || filteredSubs.isNotEmpty) {
+        processed.add(Deck(
+          id: deck.id,
+          title: deck.title,
+          parentId: deck.parentId,
+          publicStatus: deck.publicStatus,
+          isFavorite: deck.isFavorite,
+          lastStudiedAt: deck.lastStudiedAt,
+          subDecks: filteredSubs,
+        ));
+      }
     }
 
+    // 2. Sort the current level
     if (_activeFilter == 'Yêu thích') {
-      filtered = _filterByFavorite(filtered);
+      processed.sort((a, b) {
+        if (a.isFavorite && !b.isFavorite) return -1;
+        if (!a.isFavorite && b.isFavorite) return 1;
+        return a.title.compareTo(b.title);
+      });
     } else if (_activeFilter == 'Gần đây') {
-      filtered = List.from(filtered);
-      filtered.sort((a, b) {
+      processed.sort((a, b) {
+        if (a.lastStudiedAt == null && b.lastStudiedAt == null) return a.title.compareTo(b.title);
         if (a.lastStudiedAt == null) return 1;
         if (b.lastStudiedAt == null) return -1;
         return b.lastStudiedAt!.compareTo(a.lastStudiedAt!);
       });
+    } else {
+      processed.sort((a, b) => a.title.compareTo(b.title));
     }
 
-    return filtered;
-  }
-
-  List<Deck> _filterBySearch(List<Deck> source, String query) {
-    List<Deck> result = [];
-    for (var deck in source) {
-      bool matches = deck.title.toLowerCase().contains(query.toLowerCase());
-      List<Deck> matchingSubs = _filterBySearch(deck.subDecks, query);
-      
-      if (matches || matchingSubs.isNotEmpty) {
-        result.add(Deck(
-          id: deck.id,
-          title: deck.title,
-          parentId: deck.parentId,
-          publicStatus: deck.publicStatus,
-          isFavorite: deck.isFavorite,
-          lastStudiedAt: deck.lastStudiedAt,
-          subDecks: matchingSubs,
-        ));
-      }
-    }
-    return result;
-  }
-
-  List<Deck> _filterByFavorite(List<Deck> source) {
-    List<Deck> result = [];
-    for (var deck in source) {
-      List<Deck> favoriteSubs = _filterByFavorite(deck.subDecks);
-      if (deck.isFavorite || favoriteSubs.isNotEmpty) {
-        result.add(Deck(
-          id: deck.id,
-          title: deck.title,
-          parentId: deck.parentId,
-          publicStatus: deck.publicStatus,
-          isFavorite: deck.isFavorite,
-          lastStudiedAt: deck.lastStudiedAt,
-          subDecks: favoriteSubs,
-        ));
-      }
-    }
-    return result;
+    return processed;
   }
 
   @override
   Widget build(BuildContext context) {
     final deckProvider = context.watch<DeckProvider>();
-    final displayDecks = _filterDecks(deckProvider.decks);
+    final displayDecks = _filterAndSortDecks(deckProvider.decks);
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -170,7 +153,10 @@ class _DeckListScreenState extends State<DeckListScreen> {
                           padding: const EdgeInsets.symmetric(vertical: 10),
                           itemCount: displayDecks.length,
                           itemBuilder: (context, index) {
-                            return AnkiDeckTreeWidget(deck: displayDecks[index]);
+                            return AnkiDeckTreeWidget(
+                              deck: displayDecks[index], 
+                              activeFilter: _activeFilter,
+                            );
                           },
                         ),
                       ),
@@ -238,12 +224,24 @@ class _DeckListScreenState extends State<DeckListScreen> {
 class AnkiDeckTreeWidget extends StatelessWidget {
   final Deck deck;
   final int depth;
+  final String activeFilter;
 
   const AnkiDeckTreeWidget({
     super.key,
     required this.deck,
+    this.activeFilter = 'Tất cả',
     this.depth = 0
   });
+
+  String _formatLastStudied(DateTime? date) {
+    if (date == null) return 'Chưa học';
+    final now = DateTime.now();
+    final diff = now.difference(date);
+    if (diff.inMinutes < 60) return '${diff.inMinutes} phút trước';
+    if (diff.inHours < 24) return '${diff.inHours} giờ trước';
+    if (diff.inDays < 7) return '${diff.inDays} ngày trước';
+    return DateFormat('dd/MM/yyyy').format(date);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -258,16 +256,26 @@ class AnkiDeckTreeWidget extends StatelessWidget {
             depth == 0 ? Icons.folder_rounded : Icons.folder_open_rounded, 
             color: Colors.amber,
           ),
-          title: Text(
-            deck.title,
-            style: TextStyle(
-              fontWeight: depth == 0 ? FontWeight.bold : FontWeight.w500,
-              fontSize: depth == 0 ? 16 : 14,
-            ),
+          title: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                deck.title,
+                style: TextStyle(
+                  fontWeight: depth == 0 ? FontWeight.bold : FontWeight.w500,
+                  fontSize: depth == 0 ? 16 : 14,
+                ),
+              ),
+              if (activeFilter == 'Gần đây' && deck.lastStudiedAt != null)
+                Text(
+                  'Lần cuối: ${_formatLastStudied(deck.lastStudiedAt)}',
+                  style: const TextStyle(fontSize: 10, color: Colors.grey),
+                ),
+            ],
           ),
           trailing: _buildTrailingActions(context),
           children: deck.subDecks.map((subChild) {
-            return AnkiDeckTreeWidget(deck: subChild, depth: depth + 1);
+            return AnkiDeckTreeWidget(deck: subChild, depth: depth + 1, activeFilter: activeFilter);
           }).toList(),
         ),
       );
@@ -277,9 +285,19 @@ class AnkiDeckTreeWidget extends StatelessWidget {
       padding: EdgeInsets.only(left: leftPadding),
       child: ListTile(
         leading: const Icon(Icons.style, color: Colors.blue),
-        title: Text(
-          deck.title,
-          style: TextStyle(fontSize: 14, color: Colors.black.withValues(alpha: 0.8)),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              deck.title,
+              style: TextStyle(fontSize: 14, color: Colors.black.withValues(alpha: 0.8)),
+            ),
+            if (activeFilter == 'Gần đây' && deck.lastStudiedAt != null)
+              Text(
+                'Lần cuối: ${_formatLastStudied(deck.lastStudiedAt)}',
+                style: const TextStyle(fontSize: 10, color: Colors.grey),
+              ),
+          ],
         ),
         trailing: _buildTrailingActions(context),
         onTap: () {
@@ -304,10 +322,15 @@ class AnkiDeckTreeWidget extends StatelessWidget {
           color: Colors.grey,
         ),
         const SizedBox(width: 8),
-        Icon(
-          deck.isFavorite ? Icons.star : Icons.star_border,
-          size: 18,
-          color: deck.isFavorite ? Colors.orange : Colors.grey,
+        GestureDetector(
+          onTap: () {
+            context.read<DeckProvider>().toggleFavorite(deck.id, !deck.isFavorite);
+          },
+          child: Icon(
+            deck.isFavorite ? Icons.star : Icons.star_border,
+            size: 18,
+            color: deck.isFavorite ? Colors.orange : Colors.grey,
+          ),
         ),
         const SizedBox(width: 4),
         IconButton(
