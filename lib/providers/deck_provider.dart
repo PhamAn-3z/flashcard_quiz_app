@@ -93,13 +93,12 @@ class DeckProvider with ChangeNotifier {
     }
   }
 
-  // Giữ lại để tương thích ngược
   Future<void> fetchDecks() async => fetchMyDecks();
 
   Future<bool> toggleFavorite(int deckId, bool isFavorite) async {
     try {
       final response = await _dio.patch('/decks/$deckId/toggle-favorite', data: {
-        'isFavorite': isFavorite,
+        'isFavorite': !isFavorite,
       });
       if (response.statusCode == 200 && response.data['success'] == true) {
         await fetchMyDecks();
@@ -138,6 +137,14 @@ class DeckProvider with ChangeNotifier {
     }
   }
 
+  Future<void> likeComment(int commentId) async {
+    try {
+      await _dio.post('/comments/$commentId/like');
+    } catch (e) {
+      debugPrint('Error liking comment: $e');
+    }
+  }
+
   Future<bool> deleteComment(int commentId) async {
     try {
       final response = await _dio.delete('/comments/$commentId');
@@ -156,10 +163,7 @@ class DeckProvider with ChangeNotifier {
 
       if (response.statusCode == 200 && response.data['success'] == true) {
         final data = response.data['data'];
-        
-        // Tự động làm mới danh sách "Của tôi" để cập nhật thời gian học cuối cùng (last_studied_at)
         fetchMyDecks();
-
         return DeckStudyData(
           deckId: data['deckId'],
           title: data['title'],
@@ -231,7 +235,6 @@ class DeckProvider with ChangeNotifier {
   }
 
   Future<void> updateStudyProgress(int positionId, String rating) async {
-    // BE hiện tại chưa có API /decks/study-progress trong deck_routes.dart
     debugPrint('Study progress locally updated for position: $positionId with rating: $rating');
   }
 }
