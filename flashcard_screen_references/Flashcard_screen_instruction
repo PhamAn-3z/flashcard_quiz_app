@@ -285,3 +285,27 @@ II. SƠ ĐỒ ÁNH XẠ DỮ LIỆU VÀ GIẢI THÍCH LUỒNG CODE (DATA WIRING 
           }
         }
 III. KỊCH BẢN ĐIỀU HƯỚNG VÀ TRẢI NGHIỆM CHI TIẾT (UX STATE MACHINE)Để màn hình học tập vận hành mượt mà, không giật lag và tuân thủ đúng logic thuật toán xếp bài thông minh của Anki/SM-2, bạn phải xử lý nghiêm ngặt các kịch bản hành vi sau:Kịch bản 1: Hành vi lật bài và tra cứu bổ trợKhi user nhìn thấy mặt trước ("Ký ức"), họ chưa biết cách đọc liền bấm vào bong bóng "Hiragana". Pop-up thẻ nhỏ hiện ra chữ "きおく".User bấm vào vùng trống của thẻ lớn $\rightarrow$ Thẻ lớn lật mặt ra chữ Kanji "記憶" (isCardFlipped = true). Lúc này, Pop-up nhỏ vẫn giữ nguyên trạng thái hiển thị để user đối chiếu đồng thời cả chữ Kanji và cách đọc Hiragana.Kịch bản 2: Hành vi chuyển đổi thẻ (Chuyển từ)Khi user bấm một trong ba nút chấm điểm thuật toán ở thanh công cụ dưới đáy: HARD, NORMAL, hoặc EASY:Gọi API cập nhật chỉ số SM-2 (status, interval, ease_factor) của tấm thẻ hiện tại ra sau nền ngầm.Lập tức reset các biến trạng thái tại máy:currentCardIndex++ (Tăng chỉ mục để chuyển sang từ vựng tiếp theo trong mảng).isCardFlipped = false (Quay tấm thẻ chính về lại mặt trước).activeGroupIdForPopup = null (Đóng hoàn toàn Pop-up thẻ nhỏ, đưa toàn bộ cụm bong bóng mép phải về trạng thái ẩn).Tấm thẻ mới tinh tiếp theo xuất hiện (Ví dụ: Mặt trước hiện chữ "Con chó"). Giao diện sạch sẽ hoàn toàn để bắt đầu chu kỳ học mới.
+IV.
+Tôi muốn tạo một màn hình mới hoàn toàn trong Flutter tên là `DeckOverviewScreen` (Màn hình tổng quan bộ đề). Màn hình này cần hiển thị thông số học tập ở nửa trên và tích hợp hệ thống bình luận phân cấp ở nửa dưới sao cho tối ưu trải nghiệm Mobile.
+
+    Hãy viết cho tôi mã nguồn chi tiết của file `deck_overview_screen.dart` tuân thủ các yêu cầu sau:
+
+    1. Tham số đầu vào (Constructor):
+       - Widget nhận vào: `int deckId`, `String title`, và một `Map<String, int> ankiStats` (gồm newCount, learningCount, dueCount) được truyền sang từ màn hình danh sách bộ đề trước đó.
+
+    2. Cấu trúc Giao diện (UI Layout):
+       - Nền Dark Mode (Scaffold backgroundColor là màu xám đen/tối).
+       - Sử dụng một `CustomScrollView` hoặc `ListView` để toàn bộ trang cuộn mượt mà.
+       - Nửa trên màn hình: Hiển thị tiêu đề `title` căn giữa lớn. Phía dưới là một Row: Bên trái hiển thị 3 dòng thông số "New", "Learning", "To Review" kèm các con số có màu sắc tương ứng (Xanh dương, Đỏ, Xanh lá). Bên phải là nút "Study Now" màu xanh dương bo góc, khi bấm vào sẽ Navigator.push sang màn hình học bài.
+       - Giữa màn hình: Có một `Divider` phân cách mờ và một dòng tiêu đề "Thảo luận".
+       - Nửa dưới màn hình: Render danh sách bình luận bốc từ API. Mỗi item comment hiển thị CircleAvatar, tên username, nội dung text, nút bấm nhỏ "Trả lời" (Reply) và nút Tim (Like). Các comment con (phản hồi) sẽ tự động thụt lề sang phải `EdgeInsets.only(left: 24)` so với comment gốc.
+
+    3. Xử lý Logic dưới Đáy màn hình (Bottom Input Bar):
+       - Ghim cố định một `TextField` nhập bình luận ở dưới đáy màn hình (Sử dụng bottomNavigationBar của Scaffold).
+       - Khi người dùng bấm nút "Trả lời" ở một comment bất kỳ, hệ thống phải lưu trạng thái `replyingToCommentId`. Trên ô TextField dưới đáy lúc này phải hiển thị một thanh banner nhỏ ghi: "Đang trả lời [Username]..." kèm nút [X] để hủy. Nếu bấm gửi lúc này, dữ liệu gửi lên API sẽ đính kèm `parent_comment_id`. Nếu không, `parent_comment_id` sẽ bằng null.
+
+    4. Quản lý trạng thái và Gọi API:
+       - Trong `initState()`, tự động gọi hàm `fetchComments()` để tải danh sách comment từ API `GET /api/v1/decks/$deckId/comments`. Trong lúc đợi, hiện `CircularProgressIndicator` ở khu vực comment.
+       - Khi người dùng học xong ở màn hình StudyScreen và bấm BACK quay lại đây, hãy có cơ chế cập nhật hoặc làm mới dữ liệu để đảm bảo giao diện đồng bộ.
+
+    Hãy viết mã nguồn sạch sẽ, chia các sub-widget hợp lý (như `_buildHeader`, `_buildCommentList`, `_buildInputBar`) để tôi dễ bảo trì và đọc hiểu.
