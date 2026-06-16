@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../utils/constants.dart';
 import 'quiz_play_screen.dart';
+import 'create_quiz_screen.dart';
 
 class QuizListScreen extends StatefulWidget {
   const QuizListScreen({super.key});
@@ -49,6 +50,17 @@ class _QuizListScreenState extends State<QuizListScreen> with SingleTickerProvid
       body: TabBarView(
         controller: _tabController,
         children: _levels.map((level) => _buildQuizList(level)).toList(),
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const CreateQuizScreen()),
+          );
+        },
+        backgroundColor: AppColors.primary,
+        icon: const Icon(Icons.add_task_rounded),
+        label: const Text('Tạo Quiz', style: TextStyle(fontWeight: FontWeight.bold)),
       ),
     );
   }
