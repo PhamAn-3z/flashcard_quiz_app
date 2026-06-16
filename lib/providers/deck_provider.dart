@@ -19,7 +19,8 @@ class DeckStudyData {
 }
 
 class DeckProvider with ChangeNotifier {
-  List<Deck> _decks = [];
+  List<Deck> _publicDecks = [];
+  List<Deck> _myDecks = [];
   bool _isLoading = false;
   String? _token;
 
@@ -29,35 +30,48 @@ class DeckProvider with ChangeNotifier {
     receiveTimeout: const Duration(seconds: 10),
   ));
 
-  List<Deck> get decks => _decks;
+  List<Deck> get publicDecks => _publicDecks;
+  List<Deck> get myDecks => _myDecks;
+  List<Deck> get decks => _token != null ? _myDecks : _publicDecks;
   bool get isLoading => _isLoading;
 
   void updateToken(String? token) {
+    bool tokenChanged = _token != token;
     _token = token;
     if (_token != null) {
       _dio.options.headers['Authorization'] = 'Bearer $_token';
+      if (tokenChanged) {
+        Future.microtask(() {
+          fetchPublicDecks();
+          fetchMyDecks();
+        });
+      }
     } else {
       _dio.options.headers.remove('Authorization');
+      if (tokenChanged) {
+        _myDecks = [];
+        Future.microtask(() {
+          fetchPublicDecks();
+          notifyListeners();
+        });
+      }
+    }
+    
+    if (_publicDecks.isEmpty) {
+      Future.microtask(() => fetchPublicDecks());
     }
   }
 
-  Future<void> fetchDecks() async {
-    _isLoading = true;
-    notifyListeners();
+  Future<void> fetchPublicDecks() async {
     try {
-      // Use /my-decks if logged in, otherwise /decks
-      final endpoint = _token != null ? '/decks/my-decks' : '/decks';
-      final response = await _dio.get(endpoint);
-
-      if (response.statusCode == 200) {
+      final response = await _dio.get('/decks');
+      if (response.statusCode == 200 && response.data['success'] == true) {
         final List<dynamic> data = response.data['data'] ?? [];
-        _decks = data.map((item) => Deck.fromJson(item)).toList();
+        _publicDecks = data.map((item) => Deck.fromJson(item)).toList();
+        notifyListeners();
       }
     } catch (e) {
-      debugPrint('Error fetching decks: $e');
-    } finally {
-      _isLoading = false;
-      notifyListeners();
+      debugPrint('Error fetching public decks: $e');
     }
   }
 
@@ -66,10 +80,9 @@ class DeckProvider with ChangeNotifier {
     notifyListeners();
     try {
       final response = await _dio.get('/decks/my-decks');
-
-      if (response.statusCode == 200) {
+      if (response.statusCode == 200 && response.data['success'] == true) {
         final List<dynamic> data = response.data['data'] ?? [];
-        _decks = data.map((item) => Deck.fromJson(item)).toList();
+        _myDecks = data.map((item) => Deck.fromJson(item)).toList();
       }
     } catch (e) {
       debugPrint('Error fetching my decks: $e');
@@ -79,14 +92,16 @@ class DeckProvider with ChangeNotifier {
     }
   }
 
+  // Giữ lại để tương thích ngược
+  Future<void> fetchDecks() async => fetchMyDecks();
+
   Future<bool> toggleFavorite(int deckId, bool isFavorite) async {
     try {
       final response = await _dio.patch('/decks/$deckId/toggle-favorite', data: {
         'isFavorite': isFavorite,
       });
-      if (response.statusCode == 200) {
-        // Refresh local data
-        await fetchDecks();
+      if (response.statusCode == 200 && response.data['success'] == true) {
+        await fetchMyDecks();
         return true;
       }
       return false;
@@ -99,7 +114,7 @@ class DeckProvider with ChangeNotifier {
   Future<List<Map<String, dynamic>>> fetchComments(int deckId) async {
     try {
       final response = await _dio.get('/decks/$deckId/comments');
-      if (response.statusCode == 200) {
+      if (response.statusCode == 200 && response.data['success'] == true) {
         return List<Map<String, dynamic>>.from(response.data['data'] ?? []);
       }
     } catch (e) {
@@ -114,9 +129,19 @@ class DeckProvider with ChangeNotifier {
         'content': content,
         'parentCommentId': parentCommentId,
       });
-      return response.statusCode == 201;
+      return response.statusCode == 201 && response.data['success'] == true;
     } catch (e) {
       debugPrint('Error adding comment: $e');
+      return false;
+    }
+  }
+
+  Future<bool> deleteComment(int commentId) async {
+    try {
+      final response = await _dio.delete('/comments/$commentId');
+      return response.statusCode == 200 && response.data['success'] == true;
+    } catch (e) {
+      debugPrint('Error deleting comment: $e');
       return false;
     }
   }
@@ -125,11 +150,14 @@ class DeckProvider with ChangeNotifier {
     _isLoading = true;
     notifyListeners();
     try {
-      // Khớp với route backend: /api/v1/decks/<id>/study
       final response = await _dio.get('/decks/$deckId/study');
 
-      if (response.statusCode == 200) {
+      if (response.statusCode == 200 && response.data['success'] == true) {
         final data = response.data['data'];
+        
+        // Tự động làm mới danh sách "Của tôi" để cập nhật thời gian học cuối cùng (last_studied_at)
+        fetchMyDecks();
+
         return DeckStudyData(
           deckId: data['deckId'],
           title: data['title'],
@@ -178,8 +206,8 @@ class DeckProvider with ChangeNotifier {
         },
       );
 
-      if (response.statusCode == 200) {
-        await fetchDecks();
+      if (response.statusCode == 200 && response.data['success'] == true) {
+        await fetchMyDecks();
         return true;
       }
       return false;
@@ -195,8 +223,8 @@ class DeckProvider with ChangeNotifier {
   Future<bool> deleteDeck(int deckId) async {
     try {
       final response = await _dio.delete('/decks/$deckId');
-      if (response.statusCode == 200) {
-        await fetchDecks();
+      if (response.statusCode == 200 && response.data['success'] == true) {
+        await fetchMyDecks();
         return true;
       }
       return false;
@@ -208,8 +236,10 @@ class DeckProvider with ChangeNotifier {
 
   // New: Update SM-2 progress
   Future<void> updateStudyProgress(int positionId, String rating) async {
+    // BE hiện tại chưa có API /decks/study-progress trong deck_routes.dart
+    // Tạm thời comment lại để tránh lỗi 404 cho đến khi BE cập nhật
+    /*
     try {
-      // rating can be 'HARD', 'NORMAL', 'EASY'
       await _dio.post('/decks/study-progress', data: {
         'positionId': positionId,
         'rating': rating,
@@ -217,5 +247,7 @@ class DeckProvider with ChangeNotifier {
     } catch (e) {
       debugPrint('Error updating study progress: $e');
     }
+    */
+    debugPrint('Study progress locally updated for position: $positionId with rating: $rating');
   }
 }

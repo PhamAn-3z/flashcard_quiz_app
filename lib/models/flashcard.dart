@@ -12,13 +12,12 @@ class Flashcard {
   });
 
   factory Flashcard.fromJson(Map<String, dynamic> json) {
+    final List<dynamic> rawCardData = json['cardData'] ?? json['card_data'] ?? [];
     return Flashcard(
-      positionId: json['positionId'],
-      colIndex: json['colIndex'],
-      studyState: StudyState.fromJson(json['studyState']),
-      cardData: (json['cardData'] as List)
-          .map((i) => CardCell.fromJson(i))
-          .toList(),
+      positionId: json['positionId'] ?? json['position_id'] ?? 0,
+      colIndex: json['colIndex'] ?? json['col_index'] ?? 0,
+      studyState: StudyState.fromJson(json['studyState'] ?? json['study_state'] ?? {}),
+      cardData: rawCardData.map((i) => CardCell.fromJson(i)).toList(),
     );
   }
 
@@ -49,11 +48,11 @@ class StudyState {
 
   factory StudyState.fromJson(Map<String, dynamic> json) {
     return StudyState(
-      status: json['status'],
-      easeFactor: (json['easeFactor'] as num).toDouble(),
-      interval: json['interval'],
-      reviewCount: json['reviewCount'],
-      nextReview: DateTime.parse(json['nextReview']),
+      status: json['status'] ?? 'NEW',
+      easeFactor: (json['easeFactor'] ?? json['ease_factor'] as num?)?.toDouble() ?? 2.5,
+      interval: json['interval'] ?? 0,
+      reviewCount: json['reviewCount'] ?? json['review_count'] ?? 0,
+      nextReview: DateTime.tryParse(json['nextReview'] ?? json['next_review'] ?? '') ?? DateTime.now(),
     );
   }
 }
@@ -74,13 +73,25 @@ class CardCell {
   });
 
   factory CardCell.fromJson(Map<String, dynamic> json) {
-    final content = json['content'];
+    final dynamic content = json['content'];
+    String cellText = "";
+    String? img;
+    String? audio;
+
+    if (content is Map) {
+      cellText = content['text']?.toString() ?? "";
+      img = content['image_url'];
+      audio = content['audio_url'];
+    } else if (content is String) {
+      cellText = content;
+    }
+
     return CardCell(
-      termId: json['termId'],
-      groupId: json['groupId'],
-      text: content['text'] ?? '',
-      imageUrl: content['image_url'],
-      audioUrl: content['audio_url'],
+      termId: json['termId'] ?? json['term_id'] ?? 0,
+      groupId: json['groupId'] ?? json['group_id'] ?? 0,
+      text: cellText,
+      imageUrl: img,
+      audioUrl: audio,
     );
   }
 }

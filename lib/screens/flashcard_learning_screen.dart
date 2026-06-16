@@ -86,16 +86,24 @@ class _FlashcardLearningScreenState extends State<FlashcardLearningScreen> {
     if (headers.isEmpty) {
       return Scaffold(
         appBar: AppBar(title: Text(_studyData!.title)),
-        body: const Center(child: Text('Bộ thẻ này chưa được cấu hình tiêu đề.')),
+        body: const Center(child: Text('Bộ thẻ này không có dữ liệu hiển thị.')),
       );
     }
     
-    // Rank A = Front, Rank B = Back
-    final headerFront = headers.firstWhere((h) => h.personalizedRank == 'A', orElse: () => headers[0]);
-    final headerBack = headers.firstWhere((h) => h.personalizedRank == 'B', orElse: () => headers.length > 1 ? headers[1] : headers[0]);
+    // Tìm Rank A và B. Nếu không có (với bộ đề mới), lấy nhóm thứ 1 và thứ 2 làm mặc định.
+    final headerFront = headers.any((h) => h.personalizedRank == 'A')
+        ? headers.firstWhere((h) => h.personalizedRank == 'A')
+        : headers[0];
+
+    final headerBack = headers.any((h) => h.personalizedRank == 'B')
+        ? headers.firstWhere((h) => h.personalizedRank == 'B')
+        : (headers.length > 1 ? headers[1] : headers[0]);
     
-    // Other ranks (C to H) for sidebar bubbles
-    final bubbleHeaders = headers.where((h) => h.personalizedRank != 'A' && h.personalizedRank != 'B').take(6).toList();
+    // Các nhóm còn lại dùng làm bong bóng phụ (bubbles)
+    final bubbleHeaders = headers
+        .where((h) => h.groupId != headerFront.groupId && h.groupId != headerBack.groupId)
+        .take(6)
+        .toList();
 
     return Scaffold(
       backgroundColor: const Color(0xFFF1F5F9),

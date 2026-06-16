@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/deck_provider.dart';
+import '../providers/auth_provider.dart';
 import '../utils/constants.dart';
 import 'package:intl/intl.dart';
 
@@ -87,8 +88,9 @@ class _CommentsScreenState extends State<CommentsScreen> {
   }
 
   Widget _buildCommentItem(Map<String, dynamic> comment) {
-    final DateTime createdAt = DateTime.parse(comment['created_at']);
+    final DateTime createdAt = DateTime.parse(comment['createdAt'] ?? comment['created_at']);
     final String formattedDate = DateFormat('dd/MM/yyyy HH:mm').format(createdAt);
+    final bool isMyComment = comment['username'] == context.read<AuthProvider>().user?.username;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -119,6 +121,13 @@ class _CommentsScreenState extends State<CommentsScreen> {
                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
               ),
               const Spacer(),
+              if (isMyComment)
+                IconButton(
+                  constraints: const BoxConstraints(),
+                  padding: EdgeInsets.zero,
+                  icon: const Icon(Icons.delete_outline, size: 16, color: Colors.red),
+                  onPressed: () => _deleteComment(comment['id']),
+                ),
               Text(
                 formattedDate,
                 style: const TextStyle(color: Colors.grey, fontSize: 10),
@@ -130,9 +139,24 @@ class _CommentsScreenState extends State<CommentsScreen> {
             comment['content'] ?? '',
             style: const TextStyle(fontSize: 14, height: 1.4),
           ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Icon(Icons.thumb_up_alt_outlined, size: 14, color: (comment['isLikedByMe'] ?? false) ? AppColors.primary : Colors.grey),
+              const SizedBox(width: 4),
+              Text('${comment['totalLikes'] ?? 0}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+            ],
+          )
         ],
       ),
     );
+  }
+
+  Future<void> _deleteComment(int commentId) async {
+    final success = await context.read<DeckProvider>().deleteComment(commentId);
+    if (success) {
+      _loadComments();
+    }
   }
 
   Widget _buildCommentInput() {

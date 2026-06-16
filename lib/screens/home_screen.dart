@@ -8,6 +8,7 @@ import 'notification_settings_screen.dart';
 import 'quiz_list_screen.dart';
 import 'translation_screen.dart';
 import 'deck_list_screen.dart';
+import 'flashcard_learning_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -309,31 +310,50 @@ class HomeScreen extends StatelessWidget {
   Widget _buildHorizontalDecks(BuildContext context) {
     return Consumer<DeckProvider>(
       builder: (context, deckProvider, _) {
-        if (deckProvider.isLoading) return const Center(child: CircularProgressIndicator());
+        final list = deckProvider.publicDecks; // Luôn dùng publicDecks cho Home
+        if (deckProvider.isLoading && list.isEmpty) return const Center(child: CircularProgressIndicator());
+        
+        if (list.isEmpty) {
+          return const Center(child: Text('Không có bộ thẻ công khai nào.', style: TextStyle(color: Colors.grey, fontSize: 12)));
+        }
+
         return SizedBox(
           height: 140,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             clipBehavior: Clip.none,
-            itemCount: deckProvider.decks.length,
+            itemCount: list.length,
             itemBuilder: (context, index) {
-              final deck = deckProvider.decks[index];
-              return Container(
-                width: 140,
-                margin: const EdgeInsets.only(right: 12),
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(Icons.folder_rounded, color: Colors.blue.withOpacity(0.5), size: 30),
-                    const Spacer(),
-                    Text(deck.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14), maxLines: 1),
-                    Text('${deck.totalCards} thẻ', style: const TextStyle(color: Colors.grey, fontSize: 11)),
-                  ],
+              final deck = list[index];
+              return GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => FlashcardLearningScreen(
+                        deckId: deck.id,
+                        deckName: deck.title,
+                      ),
+                    ),
+                  );
+                },
+                child: Container(
+                  width: 140,
+                  margin: const EdgeInsets.only(right: 12),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.folder_rounded, color: Colors.blue.withOpacity(0.5), size: 30),
+                      const Spacer(),
+                      Text(deck.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14), maxLines: 1),
+                      Text('${deck.totalCards} thẻ', style: const TextStyle(color: Colors.grey, fontSize: 11)),
+                    ],
+                  ),
                 ),
               );
             },

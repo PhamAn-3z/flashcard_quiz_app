@@ -143,25 +143,91 @@ class _DeckListScreenState extends State<DeckListScreen> {
           ),
 
           Expanded(
-            child: deckProvider.isLoading && deckProvider.decks.isEmpty
+            child: deckProvider.isLoading && deckProvider.myDecks.isEmpty
                 ? const Center(child: CircularProgressIndicator())
-                : displayDecks.isEmpty
-                    ? _buildEmptyState()
-                    : RefreshIndicator(
-                        onRefresh: () => deckProvider.fetchDecks(),
-                        child: ListView.builder(
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          itemCount: displayDecks.length,
-                          itemBuilder: (context, index) {
-                            return AnkiDeckTreeWidget(
-                              deck: displayDecks[index], 
-                              activeFilter: _activeFilter,
-                            );
-                          },
-                        ),
-                      ),
+                : RefreshIndicator(
+                    onRefresh: () => deckProvider.fetchMyDecks(),
+                    child: ListView(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      children: [
+                        if (displayDecks.isNotEmpty) ...[
+                          _buildSectionTitle("BỘ THẺ CỦA TÔI"),
+                          ...displayDecks.map((d) => AnkiDeckTreeWidget(deck: d, activeFilter: _activeFilter)),
+                        ] else if (_searchQuery.isEmpty)
+                          _buildEmptyState(),
+                        
+                        const SizedBox(height: 32),
+                        _buildSectionTitle("KHÁM PHÁ CỘNG ĐỒNG"),
+                        const SizedBox(height: 12),
+                        _buildPublicExploreList(deckProvider),
+                        const SizedBox(height: 40),
+                      ],
+                    ),
+                  ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      child: Text(
+        title,
+        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF64748B), letterSpacing: 1.2),
+      ),
+    );
+  }
+
+  Widget _buildPublicExploreList(DeckProvider provider) {
+    final list = provider.publicDecks;
+    if (list.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 20),
+        child: Text('Đang tải bộ đề cộng đồng...', style: TextStyle(color: Colors.grey, fontSize: 13)),
+      );
+    }
+
+    return SizedBox(
+      height: 160,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        itemCount: list.length,
+        itemBuilder: (context, index) {
+          final deck = list[index];
+          return GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => FlashcardLearningScreen(deckId: deck.id, deckName: deck.title),
+                ),
+              );
+            },
+            child: Container(
+              width: 140,
+              margin: const EdgeInsets.only(right: 16),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: Colors.black.withOpacity(0.03)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.auto_awesome_motion_rounded, color: Colors.blueAccent, size: 24),
+                  const Spacer(),
+                  Text(deck.title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14), maxLines: 2, overflow: TextOverflow.ellipsis),
+                  const SizedBox(height: 4),
+                  const Text('Công khai', style: TextStyle(color: Colors.blueGrey, fontSize: 10, fontWeight: FontWeight.w600)),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -243,6 +309,22 @@ class AnkiDeckTreeWidget extends StatelessWidget {
     return DateFormat('dd/MM/yyyy').format(date);
   }
 
+  Widget _buildAnkiBadge(int count, Color color) {
+    if (count == 0) return const SizedBox();
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: color.withOpacity(0.3), width: 0.5),
+      ),
+      child: Text(
+        '$count',
+        style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.bold),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     double leftPadding = depth * 16.0;
@@ -292,6 +374,19 @@ class AnkiDeckTreeWidget extends StatelessWidget {
               deck.title,
               style: TextStyle(fontSize: 14, color: Colors.black.withValues(alpha: 0.8)),
             ),
+            if (deck.ankiStats != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Row(
+                  children: [
+                    _buildAnkiBadge(deck.ankiStats!['newCount'] ?? 0, Colors.blue),
+                    const SizedBox(width: 6),
+                    _buildAnkiBadge(deck.ankiStats!['learningCount'] ?? 0, Colors.red),
+                    const SizedBox(width: 6),
+                    _buildAnkiBadge(deck.ankiStats!['dueCount'] ?? 0, Colors.green),
+                  ],
+                ),
+              ),
             if (activeFilter == 'Gần đây' && deck.lastStudiedAt != null)
               Text(
                 'Lần cuối: ${_formatLastStudied(deck.lastStudiedAt)}',

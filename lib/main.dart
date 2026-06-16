@@ -20,9 +20,6 @@ void main() async {
           create: (_) => DeckProvider(),
           update: (_, auth, deck) {
             deck!.updateToken(auth.token);
-            if (auth.isAuthenticated && deck.decks.isEmpty) {
-              deck.fetchDecks();
-            }
             return deck;
           },
         ),

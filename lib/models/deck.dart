@@ -6,6 +6,7 @@ class Deck {
   final bool isFavorite;
   final DateTime? lastStudiedAt;
   final List<Deck> subDecks;
+  final Map<String, int>? ankiStats; // Thêm trường này
 
   Deck({
     required this.id,
@@ -15,6 +16,7 @@ class Deck {
     required this.isFavorite,
     this.lastStudiedAt,
     required this.subDecks,
+    this.ankiStats,
   });
 
   factory Deck.fromJson(Map<String, dynamic> json) {
@@ -31,11 +33,22 @@ class Deck {
           ? DateTime.tryParse(json['lastStudiedAt']) 
           : (json['last_studied_at'] != null ? DateTime.tryParse(json['last_studied_at']) : null),
       subDecks: subDecks,
+      ankiStats: json['ankiStats'] != null ? Map<String, dynamic>.from(json['ankiStats']).map((k, v) => MapEntry(k, (v as num).toInt())) : null,
     );
   }
 
   // Support for existing UI that uses .name
   String get name => title;
-  // Support for existing UI that uses .totalCards
-  int get totalCards => 0; // Backend stats could be added here if needed
+
+  // Tính tổng số thẻ.
+  int get totalCards {
+    // Ưu tiên tính từ ankiStats (cho bộ thẻ cá nhân)
+    if (ankiStats != null) {
+      return (ankiStats!['newCount'] ?? 0) + 
+             (ankiStats!['learningCount'] ?? 0) + 
+             (ankiStats!['dueCount'] ?? 0);
+    }
+    // Nếu không có stats (cho bộ thẻ công khai), có thể BE trả về trường khác hoặc mặc định
+    return 0;
+  }
 }
