@@ -243,8 +243,9 @@ class HomeScreen extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(24),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10)],
       ),
       child: Consumer<AuthProvider>(
         builder: (context, auth, _) {
@@ -255,8 +256,8 @@ class HomeScreen extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('Tiến độ học tập', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                  Text('${stats.totalExp} XP', style: const TextStyle(color: AppColors.accent, fontWeight: FontWeight.bold)),
+                  const Text('Tiến độ học tập', style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
+                  Text('${stats.totalExp} XP', style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
                 ],
               ),
               const SizedBox(height: 12),
@@ -264,7 +265,7 @@ class HomeScreen extends StatelessWidget {
                 borderRadius: BorderRadius.circular(10),
                 child: LinearProgressIndicator(
                   value: (stats.totalExp % 500) / 500,
-                  backgroundColor: Colors.white10,
+                  backgroundColor: Colors.grey.shade100,
                   valueColor: const AlwaysStoppedAnimation<Color>(AppColors.accent),
                   minHeight: 8,
                 ),
@@ -289,9 +290,9 @@ class HomeScreen extends StatelessWidget {
       children: [
         Icon(icon, color: color, size: 16),
         const SizedBox(width: 6),
-        Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+        Text(value, style: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold, fontSize: 14)),
         const SizedBox(width: 4),
-        Text(label, style: const TextStyle(color: Colors.white54, fontSize: 12)),
+        Text(label, style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
       ],
     );
   }
@@ -331,8 +332,16 @@ class HomeScreen extends StatelessWidget {
                   children: [
                     Icon(Icons.folder_rounded, color: Colors.blue.withOpacity(0.5), size: 30),
                     const Spacer(),
-                    Text(deck.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14), maxLines: 1),
-                    Text('${deck.totalCards} thẻ', style: const TextStyle(color: Colors.grey, fontSize: 11)),
+                    Text(deck.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14), maxLines: 1),
+                    Row(
+                      children: [
+                        _buildMiniDot(Colors.blue, deck.ankiStats.newCount),
+                        const SizedBox(width: 4),
+                        _buildMiniDot(Colors.red, deck.ankiStats.learningCount),
+                        const SizedBox(width: 4),
+                        _buildMiniDot(Colors.green, deck.ankiStats.dueCount),
+                      ],
+                    ),
                   ],
                 ),
               );
@@ -340,6 +349,21 @@ class HomeScreen extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildMiniDot(Color color, int count) {
+    if (count == 0) return const SizedBox.shrink();
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        '$count',
+        style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold),
+      ),
     );
   }
 }

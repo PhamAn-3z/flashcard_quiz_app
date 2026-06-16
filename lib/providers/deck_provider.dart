@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import '../models/deck.dart';
 import '../models/flashcard.dart';
+import '../models/comment.dart';
 import '../utils/constants.dart';
 
 class DeckStudyData {
@@ -45,12 +46,13 @@ class DeckProvider with ChangeNotifier {
     _isLoading = true;
     notifyListeners();
     try {
-      // Use /my-decks if logged in, otherwise /decks
       final endpoint = _token != null ? '/decks/my-decks' : '/decks';
       final response = await _dio.get(endpoint);
 
       if (response.statusCode == 200) {
-        final List<dynamic> data = response.data['data'] ?? [];
+        final List<dynamic> data = response.data is List
+            ? response.data
+            : (response.data['data'] ?? []);
         _decks = data.map((item) => Deck.fromJson(item)).toList();
       }
     } catch (e) {
@@ -61,71 +63,10 @@ class DeckProvider with ChangeNotifier {
     }
   }
 
-  Future<void> fetchMyDecks() async {
-    _isLoading = true;
-    notifyListeners();
-    try {
-      final response = await _dio.get('/decks/my-decks');
-
-      if (response.statusCode == 200) {
-        final List<dynamic> data = response.data['data'] ?? [];
-        _decks = data.map((item) => Deck.fromJson(item)).toList();
-      }
-    } catch (e) {
-      debugPrint('Error fetching my decks: $e');
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
-  }
-
-  Future<bool> toggleFavorite(int deckId, bool isFavorite) async {
-    try {
-      final response = await _dio.patch('/decks/$deckId/toggle-favorite', data: {
-        'isFavorite': isFavorite,
-      });
-      if (response.statusCode == 200) {
-        // Refresh local data
-        await fetchDecks();
-        return true;
-      }
-      return false;
-    } catch (e) {
-      debugPrint('Error toggling favorite: $e');
-      return false;
-    }
-  }
-
-  Future<List<Map<String, dynamic>>> fetchComments(int deckId) async {
-    try {
-      final response = await _dio.get('/decks/$deckId/comments');
-      if (response.statusCode == 200) {
-        return List<Map<String, dynamic>>.from(response.data['data'] ?? []);
-      }
-    } catch (e) {
-      debugPrint('Error fetching comments: $e');
-    }
-    return [];
-  }
-
-  Future<bool> addComment(int deckId, String content, {int? parentCommentId}) async {
-    try {
-      final response = await _dio.post('/decks/$deckId/comments', data: {
-        'content': content,
-        'parentCommentId': parentCommentId,
-      });
-      return response.statusCode == 201;
-    } catch (e) {
-      debugPrint('Error adding comment: $e');
-      return false;
-    }
-  }
-
   Future<DeckStudyData?> fetchDeckStudyData(int deckId) async {
     _isLoading = true;
     notifyListeners();
     try {
-      // Khớp với route backend: /api/v1/decks/<id>/study
       final response = await _dio.get('/decks/$deckId/study');
 
       if (response.statusCode == 200) {
@@ -151,7 +92,6 @@ class DeckProvider with ChangeNotifier {
     }
   }
 
-  // Deprecated helper to avoid immediate breakage in other files
   Future<List<Flashcard>> fetchDeckDetails(int deckId) async {
     final studyData = await fetchDeckStudyData(deckId);
     return studyData?.flashcards ?? [];
@@ -206,16 +146,66 @@ class DeckProvider with ChangeNotifier {
     }
   }
 
-  // New: Update SM-2 progress
   Future<void> updateStudyProgress(int positionId, String rating) async {
     try {
-      // rating can be 'HARD', 'NORMAL', 'EASY'
       await _dio.post('/decks/study-progress', data: {
         'positionId': positionId,
         'rating': rating,
       });
     } catch (e) {
       debugPrint('Error updating study progress: $e');
+    }
+  }
+
+  Future<bool> toggleFavorite(int deckId, bool isFavorite) async {
+    try {
+      final response = await _dio.patch('/decks/$deckId/toggle-favorite', data: {
+        'isFavorite': isFavorite,
+      });
+      if (response.statusCode == 200) {
+        await fetchDecks();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      debugPrint('Error toggling favorite: $e');
+      return false;
+    }
+  }
+
+  // --- COMMENTS API ---
+  Future<List<Comment>> fetchComments(int deckId) async {
+    try {
+      final response = await _dio.get('/decks/$deckId/comments');
+      if (response.statusCode == 200) {
+        final List<dynamic> data = response.data['data'] ?? [];
+        return data.map((item) => Comment.fromJson(item)).toList();
+      }
+      return [];
+    } catch (e) {
+      debugPrint('Error fetching comments: $e');
+      return [];
+    }
+  }
+
+  Future<bool> addComment(int deckId, String content, {int? parentId}) async {
+    try {
+      final response = await _dio.post('/decks/$deckId/comments', data: {
+        'content': content,
+        'parent_id': parentId,
+      });
+      return response.statusCode == 201 || response.statusCode == 200;
+    } catch (e) {
+      debugPrint('Error adding comment: $e');
+      return false;
+    }
+  }
+
+  Future<void> likeComment(int commentId) async {
+    try {
+      await _dio.post('/comments/$commentId/like');
+    } catch (e) {
+      debugPrint('Error liking comment: $e');
     }
   }
 }

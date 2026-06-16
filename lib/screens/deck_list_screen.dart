@@ -3,10 +3,8 @@ import 'package:provider/provider.dart';
 import '../providers/deck_provider.dart';
 import '../models/deck.dart';
 import '../utils/constants.dart';
-import 'flashcard_learning_screen.dart';
 import 'bulk_import_screen.dart';
-
-import 'package:intl/intl.dart';
+import 'deck_overview_screen.dart';
 
 class DeckListScreen extends StatefulWidget {
   const DeckListScreen({super.key});
@@ -34,63 +32,85 @@ class _DeckListScreenState extends State<DeckListScreen> {
     super.dispose();
   }
 
-  List<Deck> _filterAndSortDecks(List<Deck> decks) {
-    List<Deck> processed = [];
-    
-    for (var deck in decks) {
-      // 1. Filter by search
-      bool matchesSearch = deck.title.toLowerCase().contains(_searchQuery.toLowerCase());
-      List<Deck> filteredSubs = _filterAndSortDecks(deck.subDecks);
+  List<Deck> _filterDecks(List<Deck> decks) {
+    List<Deck> filtered = decks;
 
-      if (matchesSearch || filteredSubs.isNotEmpty) {
-        processed.add(Deck(
+    if (_searchQuery.isNotEmpty) {
+      filtered = _filterBySearch(filtered, _searchQuery);
+    }
+
+    if (_activeFilter == 'Yêu thích') {
+      filtered = _filterByFavorite(filtered);
+    } else if (_activeFilter == 'Gần đây') {
+      filtered = List.from(filtered);
+      filtered.sort((a, b) {
+        if (a.lastStudiedAt == null) return 1;
+        if (b.lastStudiedAt == null) return -1;
+        return b.lastStudiedAt!.compareTo(a.lastStudiedAt!);
+      });
+    }
+
+    return filtered;
+  }
+
+  List<Deck> _filterBySearch(List<Deck> source, String query) {
+    List<Deck> result = [];
+    for (var deck in source) {
+      bool matches = deck.title.toLowerCase().contains(query.toLowerCase());
+      List<Deck> matchingSubs = _filterBySearch(deck.subDecks, query);
+      
+      if (matches || matchingSubs.isNotEmpty) {
+        result.add(Deck(
           id: deck.id,
           title: deck.title,
           parentId: deck.parentId,
           publicStatus: deck.publicStatus,
           isFavorite: deck.isFavorite,
           lastStudiedAt: deck.lastStudiedAt,
-          subDecks: filteredSubs,
+          author: deck.author,
+          ankiStats: deck.ankiStats,
+          subDecks: matchingSubs,
         ));
       }
     }
+    return result;
+  }
 
-    // 2. Sort the current level
-    if (_activeFilter == 'Yêu thích') {
-      processed.sort((a, b) {
-        if (a.isFavorite && !b.isFavorite) return -1;
-        if (!a.isFavorite && b.isFavorite) return 1;
-        return a.title.compareTo(b.title);
-      });
-    } else if (_activeFilter == 'Gần đây') {
-      processed.sort((a, b) {
-        if (a.lastStudiedAt == null && b.lastStudiedAt == null) return a.title.compareTo(b.title);
-        if (a.lastStudiedAt == null) return 1;
-        if (b.lastStudiedAt == null) return -1;
-        return b.lastStudiedAt!.compareTo(a.lastStudiedAt!);
-      });
-    } else {
-      processed.sort((a, b) => a.title.compareTo(b.title));
+  List<Deck> _filterByFavorite(List<Deck> source) {
+    List<Deck> result = [];
+    for (var deck in source) {
+      List<Deck> favoriteSubs = _filterByFavorite(deck.subDecks);
+      if (deck.isFavorite || favoriteSubs.isNotEmpty) {
+        result.add(Deck(
+          id: deck.id,
+          title: deck.title,
+          parentId: deck.parentId,
+          publicStatus: deck.publicStatus,
+          isFavorite: deck.isFavorite,
+          lastStudiedAt: deck.lastStudiedAt,
+          author: deck.author,
+          ankiStats: deck.ankiStats,
+          subDecks: favoriteSubs,
+        ));
+      }
     }
-
-    return processed;
+    return result;
   }
 
   @override
   Widget build(BuildContext context) {
     final deckProvider = context.watch<DeckProvider>();
-    final displayDecks = _filterAndSortDecks(deckProvider.decks);
+    final displayDecks = _filterDecks(deckProvider.decks);
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: const Text("Thư viện của tôi", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 24)),
+        title: const Text("Thư viện Anki", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
         backgroundColor: Colors.white,
-        foregroundColor: AppColors.textPrimary,
         elevation: 0,
         actions: [
           IconButton(
-            icon: const Icon(Icons.add, size: 28),
+            icon: const Icon(Icons.add, size: 24, color: Colors.black54),
             onPressed: () => _showAddOptions(context),
           ),
         ],
@@ -98,7 +118,7 @@ class _DeckListScreenState extends State<DeckListScreen> {
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: TextField(
               controller: _searchController,
               onChanged: (val) => setState(() => _searchQuery = val),
@@ -106,9 +126,9 @@ class _DeckListScreenState extends State<DeckListScreen> {
                 hintText: 'Tìm kiếm bộ đề...',
                 prefixIcon: const Icon(Icons.search),
                 filled: true,
-                fillColor: Colors.grey.shade100,
+                fillColor: Colors.white,
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(8),
                   borderSide: BorderSide.none,
                 ),
                 contentPadding: const EdgeInsets.symmetric(vertical: 0),
@@ -118,7 +138,7 @@ class _DeckListScreenState extends State<DeckListScreen> {
 
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
             child: Row(
               children: ['Tất cả', 'Yêu thích ⭐', 'Gần đây 🕒'].map((filter) {
                 final label = filter.split(' ')[0];
@@ -126,21 +146,24 @@ class _DeckListScreenState extends State<DeckListScreen> {
                 return Padding(
                   padding: const EdgeInsets.only(right: 8),
                   child: ChoiceChip(
-                    label: Text(filter),
+                    label: Text(filter, style: TextStyle(color: isSelected ? Colors.white : Colors.black87, fontSize: 12)),
                     selected: isSelected,
                     onSelected: (val) {
                       if (val) setState(() => _activeFilter = label);
                     },
-                    selectedColor: AppColors.primary.withValues(alpha: 0.2),
-                    labelStyle: TextStyle(
-                      color: isSelected ? AppColors.primary : Colors.black54,
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                    ),
+                    backgroundColor: Colors.white,
+                    selectedColor: AppColors.primary,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                    side: BorderSide.none,
+                    showCheckmark: false,
                   ),
                 );
               }).toList(),
             ),
           ),
+
+          const Divider(color: Colors.black12, height: 1),
+          const DeckHeaderWidget(),
 
           Expanded(
             child: deckProvider.isLoading && deckProvider.decks.isEmpty
@@ -150,13 +173,10 @@ class _DeckListScreenState extends State<DeckListScreen> {
                     : RefreshIndicator(
                         onRefresh: () => deckProvider.fetchDecks(),
                         child: ListView.builder(
-                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          padding: EdgeInsets.zero,
                           itemCount: displayDecks.length,
                           itemBuilder: (context, index) {
-                            return AnkiDeckTreeWidget(
-                              deck: displayDecks[index], 
-                              activeFilter: _activeFilter,
-                            );
+                            return AnkiDeckTreeWidget(deck: displayDecks[index]);
                           },
                         ),
                       ),
@@ -171,20 +191,11 @@ class _DeckListScreenState extends State<DeckListScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.library_books_outlined, size: 80, color: Colors.grey.shade300),
+          Icon(Icons.library_books_outlined, size: 60, color: Colors.grey.shade300),
           const SizedBox(height: 16),
           const Text(
-            "Thư viện trống rỗng",
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey),
-          ),
-          const SizedBox(height: 8),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 40),
-            child: Text(
-              "Hãy tạo bộ đề đầu tiên hoặc sử dụng tính năng Bulk Import để bắt đầu học tập!",
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey),
-            ),
+            "Thư viện trống",
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black38),
           ),
         ],
       ),
@@ -194,7 +205,7 @@ class _DeckListScreenState extends State<DeckListScreen> {
   void _showAddOptions(BuildContext context) {
     showModalBottomSheet(
       context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
       builder: (ctx) => Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -203,140 +214,95 @@ class _DeckListScreenState extends State<DeckListScreen> {
             title: const Text('Tạo bộ đề thủ công'),
             onTap: () {
               Navigator.pop(ctx);
-              // Navigation logic for manual creation
             },
           ),
           ListTile(
             leading: const Icon(Icons.paste, color: Colors.orange),
-            title: const Text('Bulk Import (Dán từ Quizlet)'),
+            title: const Text('Bulk Import (Quizlet)'),
             onTap: () {
               Navigator.pop(ctx);
               Navigator.push(context, MaterialPageRoute(builder: (_) => const BulkImportScreen()));
             },
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
         ],
       ),
     );
   }
 }
 
-class AnkiDeckTreeWidget extends StatelessWidget {
-  final Deck deck;
-  final int depth;
-  final String activeFilter;
-
-  const AnkiDeckTreeWidget({
-    super.key,
-    required this.deck,
-    this.activeFilter = 'Tất cả',
-    this.depth = 0
-  });
-
-  String _formatLastStudied(DateTime? date) {
-    if (date == null) return 'Chưa học';
-    final now = DateTime.now();
-    final diff = now.difference(date);
-    if (diff.inMinutes < 60) return '${diff.inMinutes} phút trước';
-    if (diff.inHours < 24) return '${diff.inHours} giờ trước';
-    if (diff.inDays < 7) return '${diff.inDays} ngày trước';
-    return DateFormat('dd/MM/yyyy').format(date);
-  }
+class DeckHeaderWidget extends StatelessWidget {
+  const DeckHeaderWidget({super.key});
 
   @override
   Widget build(BuildContext context) {
-    double leftPadding = depth * 16.0;
-
-    if (deck.subDecks.isNotEmpty) {
-      return Padding(
-        padding: EdgeInsets.only(left: leftPadding),
-        child: ExpansionTile(
-          shape: const Border(),
-          leading: Icon(
-            depth == 0 ? Icons.folder_rounded : Icons.folder_open_rounded, 
-            color: Colors.amber,
-          ),
-          title: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                deck.title,
-                style: TextStyle(
-                  fontWeight: depth == 0 ? FontWeight.bold : FontWeight.w500,
-                  fontSize: depth == 0 ? 16 : 14,
-                ),
-              ),
-              if (activeFilter == 'Gần đây' && deck.lastStudiedAt != null)
-                Text(
-                  'Lần cuối: ${_formatLastStudied(deck.lastStudiedAt)}',
-                  style: const TextStyle(fontSize: 10, color: Colors.grey),
-                ),
-            ],
-          ),
-          trailing: _buildTrailingActions(context),
-          children: deck.subDecks.map((subChild) {
-            return AnkiDeckTreeWidget(deck: subChild, depth: depth + 1, activeFilter: activeFilter);
-          }).toList(),
-        ),
-      );
-    }
-
-    return Padding(
-      padding: EdgeInsets.only(left: leftPadding),
-      child: ListTile(
-        leading: const Icon(Icons.style, color: Colors.blue),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              deck.title,
-              style: TextStyle(fontSize: 14, color: Colors.black.withValues(alpha: 0.8)),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: Colors.black12, width: 1)),
+      ),
+      child: Row(
+        children: [
+          const Expanded(
+            child: Text(
+              'BỘ ĐỀ',
+              style: TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1),
             ),
-            if (activeFilter == 'Gần đây' && deck.lastStudiedAt != null)
-              Text(
-                'Lần cuối: ${_formatLastStudied(deck.lastStudiedAt)}',
-                style: const TextStyle(fontSize: 10, color: Colors.grey),
-              ),
-          ],
-        ),
-        trailing: _buildTrailingActions(context),
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => FlashcardLearningScreen(deckId: deck.id, deckName: deck.title),
-            ),
-          );
-        },
+          ),
+          _buildHeaderCol('New', Colors.blue),
+          _buildHeaderCol('Learn', Colors.red),
+          _buildHeaderCol('Due', Colors.green),
+          const SizedBox(width: 40),
+        ],
       ),
     );
   }
 
-  Widget _buildTrailingActions(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
+  Widget _buildHeaderCol(String label, Color color) {
+    return SizedBox(
+      width: 45,
+      child: Text(
+        label,
+        textAlign: TextAlign.center,
+        style: TextStyle(color: color.withValues(alpha: 0.6), fontSize: 10, fontWeight: FontWeight.bold),
+      ),
+    );
+  }
+}
+
+class AnkiDeckTreeWidget extends StatefulWidget {
+  final Deck deck;
+  final int depth;
+
+  const AnkiDeckTreeWidget({
+    super.key,
+    required this.deck,
+    this.depth = 0
+  });
+
+  @override
+  State<AnkiDeckTreeWidget> createState() => _AnkiDeckTreeWidgetState();
+}
+
+class _AnkiDeckTreeWidgetState extends State<AnkiDeckTreeWidget> {
+  bool _isExpanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    bool hasSubDecks = widget.deck.subDecks.isNotEmpty;
+
+    return Column(
       children: [
-        Icon(
-          deck.publicStatus == 'public' ? Icons.public : Icons.lock_outline,
-          size: 16,
-          color: Colors.grey,
+        DeckRowWidget(
+          deck: widget.deck,
+          depth: widget.depth,
+          isExpanded: _isExpanded,
+          onExpandToggle: () => setState(() => _isExpanded = !_isExpanded),
+          onSettingsPressed: () => _showItemActions(context),
         ),
-        const SizedBox(width: 8),
-        GestureDetector(
-          onTap: () {
-            context.read<DeckProvider>().toggleFavorite(deck.id, !deck.isFavorite);
-          },
-          child: Icon(
-            deck.isFavorite ? Icons.star : Icons.star_border,
-            size: 18,
-            color: deck.isFavorite ? Colors.orange : Colors.grey,
-          ),
-        ),
-        const SizedBox(width: 4),
-        IconButton(
-          icon: const Icon(Icons.more_vert, size: 20),
-          onPressed: () => _showItemActions(context),
-        )
+        if (hasSubDecks && _isExpanded)
+          ...widget.deck.subDecks.map((sub) => AnkiDeckTreeWidget(deck: sub, depth: widget.depth + 1)),
       ],
     );
   }
@@ -344,17 +310,30 @@ class AnkiDeckTreeWidget extends StatelessWidget {
   void _showItemActions(BuildContext context) {
     showModalBottomSheet(
       context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
       builder: (ctx) => Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           ListTile(
-            leading: const Icon(Icons.delete_forever, color: Colors.red),
-            title: const Text('Xóa vĩnh viễn', style: TextStyle(color: Colors.red)),
+            leading: Icon(
+              widget.deck.isFavorite ? Icons.star : Icons.star_outline, 
+              color: widget.deck.isFavorite ? Colors.orange : Colors.black45
+            ),
+            title: Text(widget.deck.isFavorite ? 'Bỏ yêu thích' : 'Yêu thích'),
+            onTap: () async {
+              Navigator.pop(ctx);
+              await context.read<DeckProvider>().toggleFavorite(widget.deck.id, widget.deck.isFavorite);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.delete_forever, color: Colors.redAccent),
+            title: const Text('Xóa vĩnh viễn', style: TextStyle(color: Colors.redAccent)),
             onTap: () {
               Navigator.pop(ctx);
               _showConfirmDelete(context);
             },
           ),
+          const SizedBox(height: 16),
         ],
       ),
     );
@@ -368,11 +347,18 @@ class AnkiDeckTreeWidget extends StatelessWidget {
         title: const Text('Xác nhận xóa'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Bạn có chắc chắn muốn xóa "${deck.title}"?'),
+            Text('Xóa bộ đề "${widget.deck.title}"?'),
+            const SizedBox(height: 12),
+            const Text('Nhập "XÓA" để xác nhận:', style: TextStyle(fontSize: 12, color: Colors.redAccent)),
             const SizedBox(height: 8),
-            const Text('Hành động này không thể hoàn tác. Vui lòng nhập "XÓA" để xác nhận.', style: TextStyle(fontSize: 12, color: Colors.red)),
-            TextField(controller: confirmController, decoration: const InputDecoration(hintText: 'XÓA')),
+            TextField(
+              controller: confirmController,
+              decoration: const InputDecoration(
+                hintText: 'XÓA',
+              ),
+            ),
           ],
         ),
         actions: [
@@ -384,7 +370,7 @@ class AnkiDeckTreeWidget extends StatelessWidget {
                 onPressed: confirmController.text == 'XÓA' 
                   ? () async {
                       Navigator.pop(ctx);
-                      final success = await context.read<DeckProvider>().deleteDeck(deck.id);
+                      final success = await context.read<DeckProvider>().deleteDeck(widget.deck.id);
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(content: Text(success ? 'Đã xóa bộ đề' : 'Xóa thất bại'))
@@ -392,11 +378,172 @@ class AnkiDeckTreeWidget extends StatelessWidget {
                       }
                     }
                   : null,
-                child: const Text('Xác nhận xóa', style: TextStyle(color: Colors.red)),
+                child: const Text('Xác nhận xóa', style: TextStyle(color: Colors.redAccent)),
               );
             },
           )
         ],
+      ),
+    );
+  }
+}
+
+class DeckRowWidget extends StatelessWidget {
+  final Deck deck;
+  final int depth;
+  final bool isExpanded;
+  final VoidCallback onExpandToggle;
+  final VoidCallback onSettingsPressed;
+
+  const DeckRowWidget({
+    super.key,
+    required this.deck,
+    required this.depth,
+    required this.isExpanded,
+    required this.onExpandToggle,
+    required this.onSettingsPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    bool hasSubDecks = deck.subDecks.isNotEmpty;
+    bool isDue = deck.ankiStats.dueCount > 0;
+
+    return InkWell(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => DeckOverviewScreen(
+              deckId: deck.id,
+              title: deck.title,
+              ankiStats: {
+                'newCount': deck.ankiStats.newCount,
+                'learningCount': deck.ankiStats.learningCount,
+                'dueCount': deck.ankiStats.dueCount,
+              },
+            ),
+          ),
+        );
+      },
+      child: Container(
+        padding: EdgeInsets.only(
+          left: 16.0 + (depth * 20.0),
+          right: 8.0,
+          top: 10.0,
+          bottom: 10.0,
+        ),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          border: Border(bottom: BorderSide(color: Colors.black12, width: 0.5)),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 24,
+                    child: hasSubDecks
+                        ? IconButton(
+                            icon: Icon(
+                              isExpanded ? Icons.remove_circle_outline : Icons.add_circle_outline,
+                              size: 16,
+                              color: Colors.grey,
+                            ),
+                            onPressed: onExpandToggle,
+                            padding: EdgeInsets.zero,
+                          )
+                        : null,
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(
+                    hasSubDecks ? Icons.folder_rounded : Icons.collections_bookmark_rounded,
+                    size: 18,
+                    color: isDue ? Colors.blueGrey : Colors.grey.shade300,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Flexible(
+                              child: Text(
+                                deck.title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: isDue ? Colors.black87 : Colors.black54,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              icon: Icon(
+                                deck.isFavorite ? Icons.star : Icons.star_border,
+                                color: deck.isFavorite ? Colors.amber : Colors.grey.shade300,
+                                size: 16,
+                              ),
+                              onPressed: () => context.read<DeckProvider>().toggleFavorite(deck.id, deck.isFavorite),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                            ),
+                          ],
+                        ),
+                        if (deck.author != null)
+                          Row(
+                            children: [
+                              CircleAvatar(
+                                radius: 7,
+                                backgroundImage: deck.author!.avatarUrl != null ? NetworkImage(deck.author!.avatarUrl!) : null,
+                                backgroundColor: Colors.grey.shade100,
+                                child: deck.author!.avatarUrl == null ? const Icon(Icons.person, size: 8, color: Colors.grey) : null,
+                              ),
+                              const SizedBox(width: 4),
+                              Text("Tác giả: ${deck.author!.username}", style: const TextStyle(color: Colors.grey, fontSize: 10)),
+                            ],
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            _buildStatCol("${deck.ankiStats.newCount}", Colors.blue),
+            _buildStatCol("${deck.ankiStats.learningCount}", Colors.red),
+            _buildStatCol("${deck.ankiStats.dueCount}", Colors.green),
+            SizedBox(
+              width: 40,
+              child: IconButton(
+                icon: const Icon(Icons.settings, size: 18, color: Colors.grey),
+                onPressed: onSettingsPressed,
+                padding: EdgeInsets.zero,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatCol(String count, Color color) {
+    String text = (count == "" || count == "null") ? "0" : count;
+    
+    return SizedBox(
+      width: 45,
+      child: Center(
+        child: Text(
+          text,
+          style: TextStyle(
+            color: color,
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       ),
     );
   }

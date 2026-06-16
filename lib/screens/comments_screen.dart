@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/deck_provider.dart';
+import '../models/comment.dart';
 import '../utils/constants.dart';
 import 'package:intl/intl.dart';
 
@@ -16,7 +17,7 @@ class CommentsScreen extends StatefulWidget {
 
 class _CommentsScreenState extends State<CommentsScreen> {
   final TextEditingController _commentController = TextEditingController();
-  List<Map<String, dynamic>> _comments = [];
+  List<Comment> _comments = [];
   bool _isLoading = true;
 
   @override
@@ -86,9 +87,8 @@ class _CommentsScreenState extends State<CommentsScreen> {
     );
   }
 
-  Widget _buildCommentItem(Map<String, dynamic> comment) {
-    final DateTime createdAt = DateTime.parse(comment['created_at']);
-    final String formattedDate = DateFormat('dd/MM/yyyy HH:mm').format(createdAt);
+  Widget _buildCommentItem(Comment comment) {
+    final String formattedDate = DateFormat('dd/MM/yyyy HH:mm').format(comment.createdAt);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -109,13 +109,13 @@ class _CommentsScreenState extends State<CommentsScreen> {
                 radius: 14,
                 backgroundColor: AppColors.primary.withOpacity(0.1),
                 child: Text(
-                  comment['username']?[0].toUpperCase() ?? 'U',
+                  comment.username[0].toUpperCase(),
                   style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.primary),
                 ),
               ),
               const SizedBox(width: 8),
               Text(
-                comment['username'] ?? 'Người dùng',
+                comment.username,
                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
               ),
               const Spacer(),
@@ -127,7 +127,7 @@ class _CommentsScreenState extends State<CommentsScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            comment['content'] ?? '',
+            comment.content,
             style: const TextStyle(fontSize: 14, height: 1.4),
           ),
         ],
