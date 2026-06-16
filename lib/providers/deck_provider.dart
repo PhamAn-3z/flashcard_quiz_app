@@ -46,7 +46,7 @@ class DeckProvider with ChangeNotifier {
     _isLoading = true;
     notifyListeners();
     try {
-      final endpoint = _token != null ? '/decks/my-decks' : '/decks/';
+      final endpoint = _token != null ? '/decks/my-decks' : '/decks';
       final response = await _dio.get(endpoint);
 
       if (response.statusCode == 200) {
@@ -159,8 +159,8 @@ class DeckProvider with ChangeNotifier {
 
   Future<bool> toggleFavorite(int deckId, bool isFavorite) async {
     try {
-      final response = await _dio.patch('/decks/$deckId', data: {
-        'isFavorite': !isFavorite,
+      final response = await _dio.patch('/decks/$deckId/toggle-favorite', data: {
+        'isFavorite': isFavorite,
       });
       if (response.statusCode == 200) {
         await fetchDecks();

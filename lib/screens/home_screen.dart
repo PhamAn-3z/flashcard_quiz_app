@@ -6,6 +6,8 @@ import '../utils/constants.dart';
 import 'profile_screen.dart';
 import 'notification_settings_screen.dart';
 import 'quiz_list_screen.dart';
+import 'translation_screen.dart';
+import 'deck_list_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -146,8 +148,12 @@ class HomeScreen extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _buildMenuIcon(Icons.style_rounded, 'Flashcard', Colors.blue, () {}),
-          _buildMenuIcon(Icons.translate_rounded, 'Dịch', Colors.green, () {}),
+          _buildMenuIcon(Icons.style_rounded, 'Flashcard', Colors.blue, () {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const DeckListScreen()));
+          }),
+          _buildMenuIcon(Icons.translate_rounded, 'Dịch', Colors.green, () {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const TranslationScreen()));
+          }),
           _buildMenuIcon(Icons.psychology_rounded, 'Quiz', Colors.red, () {
             Navigator.push(context, MaterialPageRoute(builder: (_) => const QuizListScreen()));
           }),

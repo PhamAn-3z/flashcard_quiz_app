@@ -154,14 +154,71 @@ class AuthProvider with ChangeNotifier {
         level: userData['level'] ?? 4,
         lastStudyDate: userData['last_study_date'] ?? DateFormat('yyyy-MM-dd').format(DateTime.now()),
       );
+      await _fetchStats();
     } catch (e) {
       rethrow;
     }
   }
 
+  Future<void> refreshProfile() async {
+    await _fetchProfile();
+    await _fetchStats();
+  }
+
+  // Method to spend XP
+  Future<bool> spendXP(int amount) async {
+    if (_userStats == null || _user == null || _userStats!.totalExp < amount) {
+      return false;
+    }
+
+    final int newTotalExp = _userStats!.totalExp - amount;
+    final int newLevel = newTotalExp ~/ 500 + 1;
+
+    _userStats = _userStats!.copyWith(
+      totalExp: newTotalExp,
+      level: newLevel,
+    );
+    notifyListeners();
+
+    try {
+      await _dio.put('/stats/${_user!.id}', data: {
+        'current_streak': _userStats!.currentStreak,
+        'max_streak': _userStats!.maxStreak,
+        'total_exp': newTotalExp,
+        'level': newLevel,
+        'last_study_date': _userStats!.lastStudyDate,
+      });
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<void> _fetchStats() async {
+    if (_user == null) return;
+    try {
+      final response = await _dio.get('/stats/${_user!.id}');
+      if (response.statusCode == 200) {
+        final data = response.data['data'];
+        _userStats = UserStats.fromJson(data);
+        notifyListeners();
+      }
+    } catch (e) {
+      // Logic for new users who don't have stats yet
+      _userStats = UserStats(
+        currentStreak: 0,
+        maxStreak: 0,
+        totalExp: 0,
+        level: 1,
+        lastStudyDate: null,
+      );
+      notifyListeners();
+    }
+  }
+
   // Method to increment EXP and update Streak
-  void addStudyProgress(int expEarned) {
-    if (_userStats == null) return;
+  void addStudyProgress(int expEarned) async {
+    if (_userStats == null || _user == null) return;
     
     final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
     int newStreak = _userStats!.currentStreak;
@@ -174,14 +231,30 @@ class AuthProvider with ChangeNotifier {
       }
     }
 
+    final int newTotalExp = _userStats!.totalExp + expEarned;
+    final int newLevel = newTotalExp ~/ 500 + 1;
+
     _userStats = _userStats!.copyWith(
       currentStreak: newStreak,
       maxStreak: newMaxStreak,
-      totalExp: _userStats!.totalExp + expEarned,
-      level: (_userStats!.totalExp + expEarned) ~/ 500 + 1, // Basic level formula
+      totalExp: newTotalExp,
+      level: newLevel,
       lastStudyDate: today,
     );
 
     notifyListeners();
+
+    // Sync to BE
+    try {
+      await _dio.put('/stats/${_user!.id}', data: {
+        'current_streak': newStreak,
+        'max_streak': newMaxStreak,
+        'total_exp': newTotalExp,
+        'level': newLevel,
+        'last_study_date': today,
+      });
+    } catch (e) {
+      print('Sync stats failed: $e');
+    }
   }
 }

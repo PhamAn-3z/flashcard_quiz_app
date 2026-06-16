@@ -110,7 +110,7 @@ class _DeckListScreenState extends State<DeckListScreen> {
         elevation: 0,
         actions: [
           IconButton(
-            icon: const Icon(Icons.add, size: 24, color: Colors.white70),
+            icon: const Icon(Icons.add, size: 24, color: Colors.black54),
             onPressed: () => _showAddOptions(context),
           ),
         ],
@@ -135,6 +135,7 @@ class _DeckListScreenState extends State<DeckListScreen> {
               ),
             ),
           ),
+
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -160,11 +161,13 @@ class _DeckListScreenState extends State<DeckListScreen> {
               }).toList(),
             ),
           ),
-          const Divider(color: Colors.white10, height: 1),
+
+          const Divider(color: Colors.black12, height: 1),
           const DeckHeaderWidget(),
+
           Expanded(
             child: deckProvider.isLoading && deckProvider.decks.isEmpty
-                ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+                ? const Center(child: CircularProgressIndicator())
                 : displayDecks.isEmpty
                     ? _buildEmptyState()
                     : RefreshIndicator(
@@ -188,11 +191,11 @@ class _DeckListScreenState extends State<DeckListScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.library_books_outlined, size: 60, color: Colors.white10),
+          Icon(Icons.library_books_outlined, size: 60, color: Colors.grey.shade300),
           const SizedBox(height: 16),
           const Text(
             "Thư viện trống",
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white38),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black38),
           ),
         ],
       ),
@@ -202,21 +205,20 @@ class _DeckListScreenState extends State<DeckListScreen> {
   void _showAddOptions(BuildContext context) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF1E1E1E),
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
       builder: (ctx) => Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           ListTile(
-            leading: const Icon(Icons.edit_note, color: Colors.blueAccent),
-            title: const Text('Tạo bộ đề thủ công', style: TextStyle(color: Colors.white)),
+            leading: const Icon(Icons.edit_note, color: Colors.blue),
+            title: const Text('Tạo bộ đề thủ công'),
             onTap: () {
               Navigator.pop(ctx);
             },
           ),
           ListTile(
-            leading: const Icon(Icons.paste, color: Colors.orangeAccent),
-            title: const Text('Bulk Import (Quizlet)', style: TextStyle(color: Colors.white)),
+            leading: const Icon(Icons.paste, color: Colors.orange),
+            title: const Text('Bulk Import (Quizlet)'),
             onTap: () {
               Navigator.pop(ctx);
               Navigator.push(context, MaterialPageRoute(builder: (_) => const BulkImportScreen()));
@@ -308,7 +310,6 @@ class _AnkiDeckTreeWidgetState extends State<AnkiDeckTreeWidget> {
   void _showItemActions(BuildContext context) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF1E1E1E),
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
       builder: (ctx) => Column(
         mainAxisSize: MainAxisSize.min,
@@ -316,9 +317,9 @@ class _AnkiDeckTreeWidgetState extends State<AnkiDeckTreeWidget> {
           ListTile(
             leading: Icon(
               widget.deck.isFavorite ? Icons.star : Icons.star_outline, 
-              color: widget.deck.isFavorite ? Colors.orange : Colors.white70
+              color: widget.deck.isFavorite ? Colors.orange : Colors.black45
             ),
-            title: Text(widget.deck.isFavorite ? 'Bỏ yêu thích' : 'Yêu thích', style: const TextStyle(color: Colors.white)),
+            title: Text(widget.deck.isFavorite ? 'Bỏ yêu thích' : 'Yêu thích'),
             onTap: () async {
               Navigator.pop(ctx);
               await context.read<DeckProvider>().toggleFavorite(widget.deck.id, widget.deck.isFavorite);
@@ -343,23 +344,19 @@ class _AnkiDeckTreeWidgetState extends State<AnkiDeckTreeWidget> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1E1E),
-        title: const Text('Xác nhận xóa', style: TextStyle(color: Colors.white)),
+        title: const Text('Xác nhận xóa'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Xóa bộ đề "${widget.deck.title}"?', style: const TextStyle(color: Colors.white70)),
+            Text('Xóa bộ đề "${widget.deck.title}"?'),
             const SizedBox(height: 12),
             const Text('Nhập "XÓA" để xác nhận:', style: TextStyle(fontSize: 12, color: Colors.redAccent)),
             const SizedBox(height: 8),
             TextField(
               controller: confirmController,
-              style: const TextStyle(color: Colors.white),
               decoration: const InputDecoration(
                 hintText: 'XÓA',
-                hintStyle: TextStyle(color: Colors.white24),
-                enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white10)),
               ),
             ),
           ],
@@ -479,7 +476,7 @@ class DeckRowWidget extends StatelessWidget {
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
-                                  color: isDue ? Colors.black87 : Colors.grey,
+                                  color: isDue ? Colors.black87 : Colors.black54,
                                   fontSize: 15,
                                   fontWeight: FontWeight.w500,
                                 ),
@@ -488,7 +485,7 @@ class DeckRowWidget extends StatelessWidget {
                             IconButton(
                               icon: Icon(
                                 deck.isFavorite ? Icons.star : Icons.star_border,
-                                color: deck.isFavorite ? Colors.amber : Colors.grey.shade200,
+                                color: deck.isFavorite ? Colors.amber : Colors.grey.shade300,
                                 size: 16,
                               ),
                               onPressed: () => context.read<DeckProvider>().toggleFavorite(deck.id, deck.isFavorite),
@@ -503,7 +500,7 @@ class DeckRowWidget extends StatelessWidget {
                               CircleAvatar(
                                 radius: 7,
                                 backgroundImage: deck.author!.avatarUrl != null ? NetworkImage(deck.author!.avatarUrl!) : null,
-                                backgroundColor: Colors.grey.shade200,
+                                backgroundColor: Colors.grey.shade100,
                                 child: deck.author!.avatarUrl == null ? const Icon(Icons.person, size: 8, color: Colors.grey) : null,
                               ),
                               const SizedBox(width: 4),

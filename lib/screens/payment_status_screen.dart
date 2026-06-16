@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
 import '../utils/constants.dart';
 import 'main_navigation.dart';
 
-class PaymentStatusScreen extends StatelessWidget {
+class PaymentStatusScreen extends StatefulWidget {
   final bool isSuccess;
   final String? message;
 
@@ -11,6 +13,22 @@ class PaymentStatusScreen extends StatelessWidget {
     required this.isSuccess,
     this.message,
   });
+
+  @override
+  State<PaymentStatusScreen> createState() => _PaymentStatusScreenState();
+}
+
+class _PaymentStatusScreenState extends State<PaymentStatusScreen> {
+  @override
+  void initState() {
+    super.initState();
+    if (widget.isSuccess) {
+      // Refresh profile to get VIP status immediately
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        context.read<AuthProvider>().refreshProfile();
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -25,25 +43,25 @@ class PaymentStatusScreen extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: isSuccess ? Colors.green.withOpacity(0.1) : Colors.red.withOpacity(0.1),
+                  color: widget.isSuccess ? Colors.green.withOpacity(0.1) : Colors.red.withOpacity(0.1),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
-                  isSuccess ? Icons.check_circle_rounded : Icons.error_rounded,
-                  color: isSuccess ? Colors.green : Colors.red,
+                  widget.isSuccess ? Icons.check_circle_rounded : Icons.error_rounded,
+                  color: widget.isSuccess ? Colors.green : Colors.red,
                   size: 100,
                 ),
               ),
               const SizedBox(height: 32),
               Text(
-                isSuccess ? 'Thanh toán thành công!' : 'Thanh toán thất bại',
+                widget.isSuccess ? 'Thanh toán thành công!' : 'Thanh toán thất bại',
                 style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900),
               ),
               const SizedBox(height: 16),
               Text(
-                isSuccess 
+                widget.isSuccess 
                   ? 'Chúc mừng! Gói Premium của bạn đã được kích hoạt. Hãy bắt đầu trải nghiệm ngay.'
-                  : (message ?? 'Giao dịch đã bị hủy hoặc có lỗi xảy ra trong quá trình xử lý. Vui lòng thử lại.'),
+                  : (widget.message ?? 'Giao dịch đã bị hủy hoặc có lỗi xảy ra trong quá trình xử lý. Vui lòng thử lại.'),
                 textAlign: TextAlign.center,
                 style: const TextStyle(color: AppColors.textSecondary, fontSize: 16),
               ),
@@ -67,7 +85,7 @@ class PaymentStatusScreen extends StatelessWidget {
                   child: const Text('QUAY LẠI TRANG CHỦ', style: TextStyle(fontWeight: FontWeight.bold)),
                 ),
               ),
-              if (!isSuccess) ...[
+              if (!widget.isSuccess) ...[
                 const SizedBox(height: 16),
                 TextButton(
                   onPressed: () => Navigator.pop(context),
