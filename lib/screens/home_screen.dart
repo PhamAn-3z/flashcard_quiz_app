@@ -38,13 +38,13 @@ class HomeScreen extends StatelessWidget {
                       const SizedBox(height: 12),
                       _buildDailyContentGrid(),
                       const SizedBox(height: 32),
-                      _buildSectionHeader('LỘ TRÌNH JLPT'),
-                      const SizedBox(height: 12),
-                      _buildJLPTPathways(),
-                      const SizedBox(height: 32),
                       _buildSectionHeader('BỘ THẺ ĐỀ XUẤT'),
                       const SizedBox(height: 12),
                       _buildHorizontalDecks(context),
+                      const SizedBox(height: 32),
+                      _buildSectionHeader('LỘ TRÌNH JLPT'),
+                      const SizedBox(height: 12),
+                      _buildJLPTPathways(),
                       const SizedBox(height: 40),
                     ],
                   ),
@@ -126,13 +126,13 @@ class HomeScreen extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10)],
         ),
-        child: TextField(
+        child: const TextField(
           decoration: InputDecoration(
             hintText: 'Tìm kiếm từ vựng, Hán tự, ngữ pháp...',
-            hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
+            hintStyle: TextStyle(color: Colors.grey, fontSize: 14),
             border: InputBorder.none,
-            icon: const Icon(Icons.search_rounded, color: AppColors.primary),
-            suffixIcon: const Icon(Icons.camera_alt_rounded, color: Colors.grey),
+            icon: Icon(Icons.search_rounded, color: AppColors.primary),
+            suffixIcon: Icon(Icons.camera_alt_rounded, color: Colors.grey),
           ),
         ),
       ),
@@ -310,11 +310,11 @@ class HomeScreen extends StatelessWidget {
   Widget _buildHorizontalDecks(BuildContext context) {
     return Consumer<DeckProvider>(
       builder: (context, deckProvider, _) {
-        final list = deckProvider.publicDecks; // Luôn dùng publicDecks cho Home
+        final list = deckProvider.publicDecks;
         if (deckProvider.isLoading && list.isEmpty) return const Center(child: CircularProgressIndicator());
         
         if (list.isEmpty) {
-          return const Center(child: Text('Không có bộ thẻ công khai nào.', style: TextStyle(color: Colors.grey, fontSize: 12)));
+          return const Center(child: Text('Không có bộ thẻ công khai.', style: TextStyle(color: Colors.grey, fontSize: 12)));
         }
 
         return SizedBox(
@@ -327,15 +327,7 @@ class HomeScreen extends StatelessWidget {
               final deck = list[index];
               return GestureDetector(
                 onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => FlashcardLearningScreen(
-                        deckId: deck.id,
-                        deckName: deck.title,
-                      ),
-                    ),
-                  );
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => FlashcardLearningScreen(deckId: deck.id, deckName: deck.title)));
                 },
                 child: Container(
                   width: 140,
@@ -351,7 +343,18 @@ class HomeScreen extends StatelessWidget {
                       Icon(Icons.folder_rounded, color: Colors.blue.withOpacity(0.5), size: 30),
                       const Spacer(),
                       Text(deck.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14), maxLines: 1),
-                      Text('${deck.totalCards} thẻ', style: const TextStyle(color: Colors.grey, fontSize: 11)),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          _buildMiniDot(Colors.blue, deck.ankiStats.newCount),
+                          const SizedBox(width: 4),
+                          _buildMiniDot(Colors.red, deck.ankiStats.learningCount),
+                          const SizedBox(width: 4),
+                          _buildMiniDot(Colors.green, deck.ankiStats.dueCount),
+                          if (deck.totalCards == 0) 
+                             Text('0 thẻ', style: TextStyle(color: Colors.grey, fontSize: 10)),
+                        ],
+                      ),
                     ],
                   ),
                 ),
@@ -360,6 +363,21 @@ class HomeScreen extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildMiniDot(Color color, int count) {
+    if (count == 0) return const SizedBox.shrink();
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        '$count',
+        style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold),
+      ),
     );
   }
 }

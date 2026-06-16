@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import '../models/deck.dart';
 import '../models/flashcard.dart';
+import '../models/comment.dart';
 import '../utils/constants.dart';
 
 class DeckStudyData {
@@ -111,11 +112,12 @@ class DeckProvider with ChangeNotifier {
     }
   }
 
-  Future<List<Map<String, dynamic>>> fetchComments(int deckId) async {
+  Future<List<Comment>> fetchComments(int deckId) async {
     try {
       final response = await _dio.get('/decks/$deckId/comments');
       if (response.statusCode == 200 && response.data['success'] == true) {
-        return List<Map<String, dynamic>>.from(response.data['data'] ?? []);
+        final List<dynamic> data = response.data['data'] ?? [];
+        return data.map((item) => Comment.fromJson(item)).toList();
       }
     } catch (e) {
       debugPrint('Error fetching comments: $e');
@@ -179,12 +181,6 @@ class DeckProvider with ChangeNotifier {
     }
   }
 
-  // Deprecated helper to avoid immediate breakage in other files
-  Future<List<Flashcard>> fetchDeckDetails(int deckId) async {
-    final studyData = await fetchDeckStudyData(deckId);
-    return studyData?.flashcards ?? [];
-  }
-
   Future<bool> bulkImport({
     required String deckTitle,
     required String publicStatus,
@@ -234,20 +230,8 @@ class DeckProvider with ChangeNotifier {
     }
   }
 
-  // New: Update SM-2 progress
   Future<void> updateStudyProgress(int positionId, String rating) async {
     // BE hiện tại chưa có API /decks/study-progress trong deck_routes.dart
-    // Tạm thời comment lại để tránh lỗi 404 cho đến khi BE cập nhật
-    /*
-    try {
-      await _dio.post('/decks/study-progress', data: {
-        'positionId': positionId,
-        'rating': rating,
-      });
-    } catch (e) {
-      debugPrint('Error updating study progress: $e');
-    }
-    */
     debugPrint('Study progress locally updated for position: $positionId with rating: $rating');
   }
 }

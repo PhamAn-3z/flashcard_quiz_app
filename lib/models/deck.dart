@@ -5,22 +5,24 @@ class Deck {
   final String publicStatus;
   final bool isFavorite;
   final DateTime? lastStudiedAt;
+  final DeckAuthor? author;
+  final AnkiStats ankiStats;
   final List<Deck> subDecks;
-  final Map<String, int>? ankiStats; // Thêm trường này
 
   Deck({
     required this.id,
     required this.title,
     this.parentId,
-    required this.publicStatus,
-    required this.isFavorite,
+    this.publicStatus = 'private',
+    this.isFavorite = false,
     this.lastStudiedAt,
-    required this.subDecks,
-    this.ankiStats,
+    this.author,
+    required this.ankiStats,
+    this.subDecks = const [],
   });
 
   factory Deck.fromJson(Map<String, dynamic> json) {
-    var subDecksList = json['subDecks'] as List? ?? json['sub_decks'] as List? ?? [];
+    var subDecksList = (json['subDecks'] ?? json['sub_decks']) as List? ?? [];
     List<Deck> subDecks = subDecksList.map((i) => Deck.fromJson(i)).toList();
 
     return Deck(
@@ -32,23 +34,46 @@ class Deck {
       lastStudiedAt: json['lastStudiedAt'] != null 
           ? DateTime.tryParse(json['lastStudiedAt']) 
           : (json['last_studied_at'] != null ? DateTime.tryParse(json['last_studied_at']) : null),
+      author: json['author'] != null ? DeckAuthor.fromJson(json['author']) : null,
+      ankiStats: AnkiStats.fromJson(json['ankiStats'] ?? json['anki_stats'] ?? {}),
       subDecks: subDecks,
-      ankiStats: json['ankiStats'] != null ? Map<String, dynamic>.from(json['ankiStats']).map((k, v) => MapEntry(k, (v as num).toInt())) : null,
     );
   }
 
-  // Support for existing UI that uses .name
   String get name => title;
 
-  // Tính tổng số thẻ.
+  // Tính tổng số thẻ từ ankiStats
   int get totalCards {
-    // Ưu tiên tính từ ankiStats (cho bộ thẻ cá nhân)
-    if (ankiStats != null) {
-      return (ankiStats!['newCount'] ?? 0) + 
-             (ankiStats!['learningCount'] ?? 0) + 
-             (ankiStats!['dueCount'] ?? 0);
-    }
-    // Nếu không có stats (cho bộ thẻ công khai), có thể BE trả về trường khác hoặc mặc định
-    return 0;
+    return ankiStats.newCount + ankiStats.learningCount + ankiStats.dueCount;
+  }
+}
+
+class DeckAuthor {
+  final String username;
+  final String? avatarUrl;
+
+  DeckAuthor({required this.username, this.avatarUrl});
+
+  factory DeckAuthor.fromJson(Map<String, dynamic> json) {
+    return DeckAuthor(
+      username: json['username'] ?? 'Ẩn danh',
+      avatarUrl: json['avatarUrl'] ?? json['avatar_url'],
+    );
+  }
+}
+
+class AnkiStats {
+  final int newCount;
+  final int learningCount;
+  final int dueCount;
+
+  AnkiStats({this.newCount = 0, this.learningCount = 0, this.dueCount = 0});
+
+  factory AnkiStats.fromJson(Map<String, dynamic> json) {
+    return AnkiStats(
+      newCount: (json['newCount'] ?? json['new_count'] ?? 0) as int,
+      learningCount: (json['learningCount'] ?? json['learning_count'] ?? 0) as int,
+      dueCount: (json['dueCount'] ?? json['due_count'] ?? 0) as int,
+    );
   }
 }
