@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:io' show Platform;
 
 class AppColors {
   static const Color primary = Color(0xFF1E88E5); // Mazii-like blue
@@ -16,24 +18,36 @@ class ApiConstants {
   static const String supabaseUrl = "https://xdekwfqnhrohydgejhdk.supabase.co";
   static const String supabaseKey = "sb_publishable_Mk288brWkRYpm14YH2xAOw_sAb6qcyW";
   
-  // URL cho Backend
-  static const String baseUrl = 'http://localhost:8080/api/v1';
-  // Chỉnh lại thành http://10.0.2.2:8080/api/v1 khi sài emulator
+  // Tự động xác định Base URL dựa trên môi trường chạy
+  static String get baseUrl {
+    if (kIsWeb) {
+      return 'http://localhost:8080/api/v1';
+    }
+    // Nếu là Android Emulator thì dùng 10.0.2.2, các trường hợp khác (iOS/Desktop) dùng localhost
+    try {
+      if (Platform.isAndroid) {
+        return 'http://10.0.2.2:8080/api/v1';
+      }
+    } catch (e) {
+      // Phòng trường hợp Platform throw lỗi trên một số môi trường lạ
+    }
+    return 'http://localhost:8080/api/v1';
+  }
 
-  // Receipt & Membership Endpoints
-  static const String memberships = '$baseUrl/memberships';
-  static const String receipts = '$baseUrl/receipts';
-  static const String vnpay = '$baseUrl/vnpay';
+  // Chuyển sang dạng getter để luôn lấy giá trị baseUrl mới nhất
+  static String get memberships => '$baseUrl/memberships';
+  static String get receipts => '$baseUrl/receipts';
+  static String get vnpay => '$baseUrl/vnpay';
 
   // Auth Endpoints
-  static const String login = '$baseUrl/auth/login';
-  static const String register = '$baseUrl/auth/register';
-  static const String logout = '$baseUrl/auth/logout';
+  static String get login => '$baseUrl/auth/login';
+  static String get register => '$baseUrl/auth/register';
+  static String get logout => '$baseUrl/auth/logout';
 
   // User Endpoints
-  static const String profile = '$baseUrl/user/profile';
-  static const String transactions = '$baseUrl/user/transactions';
+  static String get profile => '$baseUrl/user/profile';
+  static String get transactions => '$baseUrl/user/transactions';
 
   // Deck Endpoints
-  static const String decks = '$baseUrl/decks';
+  static String get decks => '$baseUrl/decks';
 }
