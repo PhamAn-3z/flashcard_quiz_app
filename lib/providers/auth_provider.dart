@@ -110,6 +110,38 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
+  Future<bool> updateProfile({
+    required String fullName,
+    required String phoneNumber,
+  }) async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final response = await _dio.put(
+        '/user/update-profile',
+        data: {
+          'full_name': fullName,
+          'phone_number': phoneNumber,
+        },
+      );
+
+      if (response.statusCode == 200) {
+        await _fetchProfile(); // Refresh local user data
+        _isLoading = false;
+        notifyListeners();
+        return true;
+      }
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
   void logout() async {
     try {
       await _dio.post('/auth/logout');

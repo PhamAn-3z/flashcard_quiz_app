@@ -33,18 +33,37 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     super.dispose();
   }
 
-  void _saveProfile() {
+  void _saveProfile() async {
     if (_formKey.currentState!.validate()) {
-      // Mock saving logic
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Cập nhật thông tin thành công!'),
-          backgroundColor: AppColors.success,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
+      final auth = context.read<AuthProvider>();
+      
+      bool success = await auth.updateProfile(
+        fullName: _nameController.text,
+        phoneNumber: _phoneController.text,
       );
-      Navigator.pop(context);
+
+      if (!mounted) return;
+
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Cập nhật thông tin thành công!'),
+            backgroundColor: AppColors.success,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        );
+        Navigator.pop(context);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Cập nhật thông tin thất bại!'),
+            backgroundColor: AppColors.error,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        );
+      }
     }
   }
 
@@ -59,9 +78,18 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         foregroundColor: AppColors.textPrimary,
         elevation: 0,
         actions: [
-          TextButton(
-            onPressed: _saveProfile,
-            child: const Text('LƯU', style: TextStyle(fontWeight: FontWeight.w900, color: AppColors.primary)),
+          Consumer<AuthProvider>(
+            builder: (context, auth, child) {
+              return auth.isLoading 
+                ? const Center(child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16),
+                    child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                  ))
+                : TextButton(
+                    onPressed: _saveProfile,
+                    child: const Text('LƯU', style: TextStyle(fontWeight: FontWeight.w900, color: AppColors.primary)),
+                  );
+            },
           ),
         ],
       ),
