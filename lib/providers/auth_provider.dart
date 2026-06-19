@@ -44,7 +44,7 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  Future<bool> login(String email, String password) async {
+  Future<String?> login(String email, String password) async {
     _isLoading = true;
     notifyListeners();
 
@@ -67,16 +67,23 @@ class AuthProvider with ChangeNotifier {
 
           _isLoading = false;
           notifyListeners();
-          return true;
+          return null; // Success
         }
       }
       _isLoading = false;
       notifyListeners();
-      return false;
+      return 'Đăng nhập thất bại';
+    } on DioException catch (e) {
+      _isLoading = false;
+      notifyListeners();
+      if (e.response?.statusCode == 403) {
+        return 'unverified';
+      }
+      return e.response?.data['message'] ?? 'Email hoặc mật khẩu không chính xác';
     } catch (e) {
       _isLoading = false;
       notifyListeners();
-      return false;
+      return 'Đã có lỗi xảy ra';
     }
   }
 
@@ -95,14 +102,59 @@ class AuthProvider with ChangeNotifier {
         data: {
           'email': email,
           'password': password,
-          'full_name': fullName,
           'username': username,
+          'full_name': fullName,
         },
       );
 
       _isLoading = false;
       notifyListeners();
       return response.statusCode == 201 || response.statusCode == 200;
+    } catch (e) {
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> verifyOtp(String email, String otp) async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final response = await _dio.post(
+        '/auth/verify-otp',
+        data: {
+          'email': email,
+          'otp': otp,
+        },
+      );
+
+      _isLoading = false;
+      notifyListeners();
+      return response.statusCode == 200;
+    } catch (e) {
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> resendOtp(String email) async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final response = await _dio.post(
+        '/auth/resend-otp',
+        data: {
+          'email': email,
+        },
+      );
+
+      _isLoading = false;
+      notifyListeners();
+      return response.statusCode == 200;
     } catch (e) {
       _isLoading = false;
       notifyListeners();

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../utils/constants.dart';
+import 'otp_verification_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -37,11 +38,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
       
       if (success) {
         if (!mounted) return;
-        _showStyledSnackBar('Đăng ký thành công! Hãy đăng nhập.', isError: false);
-        Navigator.pop(context);
+        _showStyledSnackBar('Đăng ký thành công! Vui lòng kiểm tra mã OTP trong email.', isError: false);
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => OtpVerificationScreen(email: _email),
+          ),
+        );
       } else {
         if (!mounted) return;
-        _showStyledSnackBar('Đăng ký thất bại, email có thể đã tồn tại!', isError: true);
+        _showStyledSnackBar('Đăng ký thất bại, email hoặc tên đăng nhập có thể đã tồn tại!', isError: true);
       }
     }
   }
@@ -68,12 +74,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
           Positioned(
             top: -50,
             left: -50,
-            child: _buildCircle(200, AppColors.primary.withOpacity(0.05)),
+            child: _buildCircle(200, AppColors.primary.withValues(alpha: 0.05)),
           ),
           Positioned(
             bottom: 100,
             right: -80,
-            child: _buildCircle(250, Colors.blue.withOpacity(0.05)),
+            child: _buildCircle(250, Colors.blue.withValues(alpha: 0.05)),
           ),
           
           SafeArea(

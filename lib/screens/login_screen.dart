@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../utils/constants.dart';
 import 'register_screen.dart';
-import 'main_navigation.dart';
+import 'otp_verification_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -25,14 +25,25 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() => _errorMessage = '');
       
       final auth = context.read<AuthProvider>();
-      bool success = await auth.login(_email, _password);
+      final result = await auth.login(_email, _password);
       
-      if (success) {
+      if (result == null) {
         if (!mounted) return;
-        // Không cần Navigator.push vì Consumer trong main.dart sẽ tự động nhận diện thay đổi trạng thái
+        // Success
+      } else if (result == 'unverified') {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Tài khoản chưa được xác thực. Vui lòng nhập mã OTP.')),
+        );
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => OtpVerificationScreen(email: _email),
+          ),
+        );
       } else {
         setState(() {
-          _errorMessage = 'Email hoặc mật khẩu không chính xác.';
+          _errorMessage = result;
         });
       }
     }
