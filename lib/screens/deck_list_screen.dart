@@ -4,6 +4,7 @@ import '../providers/deck_provider.dart';
 import '../models/deck.dart';
 import '../utils/constants.dart';
 import 'bulk_import_screen.dart';
+import 'create_deck_screen.dart';
 import 'deck_overview_screen.dart';
 import 'package:intl/intl.dart';
 
@@ -206,6 +207,7 @@ class _DeckListScreenState extends State<DeckListScreen> {
             title: const Text('Tạo bộ đề thủ công'),
             onTap: () {
               Navigator.pop(ctx);
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const CreateDeckScreen()));
             },
           ),
           ListTile(
