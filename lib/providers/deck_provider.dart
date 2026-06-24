@@ -237,4 +237,40 @@ class DeckProvider with ChangeNotifier {
   Future<void> updateStudyProgress(int positionId, String rating) async {
     debugPrint('Study progress locally updated for position: $positionId with rating: $rating');
   }
+
+  /// Tải file audio lên Cloudflare R2 thông qua Pre-signed URL từ Backend
+  Future<String?> uploadAudio(String fileName, List<int> fileBytes) async {
+    try {
+      // 1. Lấy Pre-signed URL từ Backend
+      final urlResponse = await _dio.post('/audio/generate-upload-url', data: {
+        'fileName': fileName,
+      });
+
+      if (urlResponse.statusCode == 200 && urlResponse.data['success'] == true) {
+        final String uploadUrl = urlResponse.data['data']['uploadUrl'];
+        final String fileUrl = urlResponse.data['data']['fileUrl'];
+
+        // 2. Tải bytes lên Cloudflare R2 bằng phương thức PUT
+        // Lưu ý: Không sử dụng Dio headers của ứng dụng (Authorization) vì đây là link trực tiếp tới R2
+        final uploadDio = Dio();
+        final response = await uploadDio.put(
+          uploadUrl,
+          data: Stream.fromIterable([fileBytes]),
+          options: Options(
+            headers: {
+              Headers.contentLengthHeader: fileBytes.length,
+              // Content-Type có thể để trống hoặc set tùy theo file
+            },
+          ),
+        );
+
+        if (response.statusCode == 200) {
+          return fileUrl;
+        }
+      }
+    } catch (e) {
+      debugPrint('Error uploading audio: $e');
+    }
+    return null;
+  }
 }

@@ -1,4 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:record/record.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:http/http.dart' as http;
+import 'dart:io' show File;
+import 'dart:typed_data';
+import '../providers/deck_provider.dart';
 import '../utils/constants.dart';
 import 'bulk_import_screen.dart';
 
@@ -10,37 +19,41 @@ class CreateDeckScreen extends StatefulWidget {
 }
 
 class _CreateDeckScreenState extends State<CreateDeckScreen> {
-  // 1. THÔNG TIN CHUNG BỘ ĐỀ (Title, Description)
+  // 1. THÔNG TIN CHUNG BỘ ĐỀ
   final Map<String, dynamic> dbContext = {
     'title': TextEditingController(),
     'description': TextEditingController(),
   };
 
-  // 2. CẤU HÌNH CỘT (HEADERS): Quản lý danh sách các thuộc tính động của Ma trận
+  // 2. CẤU HÌNH CỘT (HEADERS)
   List<Map<String, String>> headers = [
     {'id': 'kanji', 'label': 'THUẬT NGỮ'},
     {'id': 'hiragana', 'label': 'ĐỊNH NGHĨA'},
   ];
 
-  // 3. DỮ LIỆU MA TRẬN 2 CHIỀU: List các hàng, mỗi hàng là Map chứa Controllers
+  // 3. DỮ LIỆU MA TRẬN 2 CHIỀU
   List<Map<String, dynamic>> matrixRows = [];
+
+  String _publicStatus = 'public';
+  int? _parentId;
+  bool _isSaving = false;
+  final AudioRecorder _audioRecorder = AudioRecorder();
 
   @override
   void initState() {
     super.initState();
-    // Khởi tạo 2 hàng mặc định ban đầu
     _addNewRow();
     _addNewRow();
   }
 
   @override
   void dispose() {
-    // Giải phóng bộ nhớ cho toàn bộ Controllers
+    _audioRecorder.dispose();
     dbContext['title'].dispose();
     dbContext['description'].dispose();
     for (var row in matrixRows) {
       for (var header in headers) {
-        (row[header['id']] as TextEditingController?)?.dispose();
+        (row[header['id']]['controller'] as TextEditingController?)?.dispose();
       }
     }
     super.dispose();
@@ -48,30 +61,30 @@ class _CreateDeckScreenState extends State<CreateDeckScreen> {
 
   // --- LOGIC XỬ LÝ MA TRẬN ---
 
-  // Thêm cột mới: Cập nhật headers và bổ sung Controller cho tất cả các hàng hiện tại
   void _addNewColumn(String label) {
     if (label.isEmpty) return;
     setState(() {
       final String newId = 'col_${DateTime.now().millisecondsSinceEpoch}';
       headers.add({'id': newId, 'label': label.toUpperCase()});
-      
-      // Quan trọng: Phải bổ sung Controller cho cột mới này tại TẤT CẢ các hàng đang có
       for (var row in matrixRows) {
-        row[newId] = TextEditingController();
+        row[newId] = {
+          'controller': TextEditingController(),
+          'image_url': null,
+          'audio_url': null,
+        };
       }
     });
   }
 
-  // Thêm hàng mới: Khởi tạo Map chứa đầy đủ Controllers tương ứng với số lượng headers hiện tại
   void _addNewRow() {
     setState(() {
-      Map<String, dynamic> newRow = {
-        'image_url': null,
-        'audio_url': null,
-      };
-      // Duyệt qua headers để tạo Controller cho từng ô trong hàng mới
+      Map<String, dynamic> newRow = {};
       for (var header in headers) {
-        newRow[header['id']!] = TextEditingController();
+        newRow[header['id']!] = {
+          'controller': TextEditingController(),
+          'image_url': null,
+          'audio_url': null,
+        };
       }
       matrixRows.add(newRow);
     });
@@ -80,39 +93,122 @@ class _CreateDeckScreenState extends State<CreateDeckScreen> {
   void _removeRow(int index) {
     setState(() {
       for (var header in headers) {
-        (matrixRows[index][header['id']] as TextEditingController?)?.dispose();
+        (matrixRows[index][header['id']]['controller'] as TextEditingController?)?.dispose();
       }
       matrixRows.removeAt(index);
     });
   }
 
-  // Logic hứng dữ liệu từ màn hình Import
-  Future<void> _goToBulkImport() async {
-    final dynamic result = await Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const BulkImportScreen()),
-    );
+  // --- LOGIC MEDIA ---
 
-    if (result != null && result is List<List<String>>) {
-      setState(() {
-        for (var rowData in result) {
-          if (rowData.isEmpty) continue;
-          Map<String, dynamic> newRow = {'image_url': null, 'audio_url': null};
-          
-          for (int i = 0; i < headers.length; i++) {
-            String val = (i < rowData.length) ? rowData[i] : "";
-            newRow[headers[i]['id']!] = TextEditingController(text: val);
-          }
-          matrixRows.add(newRow);
-        }
-      });
+  Future<void> _pickImage(Map<String, dynamic> cell) async {
+    try {
+      FilePickerResult? result = await FilePicker.pickFiles(type: FileType.image, withData: true);
+      if (result != null) {
+        // TODO: Tích hợp API upload ảnh của bạn vào đây (tương tự uploadAudio)
+        // Hiện tại gán demo text để icon đổi màu
+        setState(() => cell['image_url'] = 'has_image_demo');
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Đã chọn ảnh!')));
+      }
+    } catch (e) {
+      debugPrint('Error picking image: $e');
     }
+  }
+
+  Future<void> _startRecording(Map<String, dynamic> cell) async {
+    try {
+      if (await _audioRecorder.hasPermission()) {
+        String? path;
+        if (!kIsWeb) {
+          final tempDir = await getTemporaryDirectory();
+          path = '${tempDir.path}/rec_${DateTime.now().millisecondsSinceEpoch}.m4a';
+        }
+        if (!mounted) return;
+        _showRecordingDialog(cell, path);
+        await _audioRecorder.start(const RecordConfig(), path: path ?? '');
+      }
+    } catch (e) {
+      debugPrint('Recording error: $e');
+    }
+  }
+
+  void _showRecordingDialog(Map<String, dynamic> cell, String? path) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Đang thu âm...', style: TextStyle(fontSize: 16)),
+        content: const Column(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.mic, size: 50, color: Colors.redAccent), SizedBox(height: 10), Text('Hãy phát âm rõ ràng')]),
+        actions: [
+          TextButton(onPressed: () async { await _audioRecorder.stop(); Navigator.pop(ctx); }, child: const Text('Hủy')),
+          ElevatedButton(
+            onPressed: () async {
+              final pathResult = await _audioRecorder.stop();
+              Navigator.pop(ctx);
+              if (pathResult != null) _processRecordedFile(cell, pathResult);
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, foregroundColor: Colors.white),
+            child: const Text('Dừng & Tải lên'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _processRecordedFile(Map<String, dynamic> cell, String path) async {
+    try {
+      Uint8List bytes;
+      String fileName;
+      if (kIsWeb) {
+        final response = await http.get(Uri.parse(path));
+        bytes = response.bodyBytes;
+        fileName = 'rec_${DateTime.now().millisecondsSinceEpoch}.webm';
+      } else {
+        File file = File(path);
+        bytes = await file.readAsBytes();
+        fileName = path.split('/').last;
+        if (await file.exists()) await file.delete();
+      }
+      setState(() => cell['audio_url'] = 'uploading');
+      final uploadedUrl = await context.read<DeckProvider>().uploadAudio(fileName, bytes);
+      if (mounted) {
+        setState(() => cell['audio_url'] = uploadedUrl);
+        if (uploadedUrl != null) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Tải âm thanh thành công!')));
+      }
+    } catch (e) {
+      debugPrint('Process audio error: $e');
+      setState(() => cell['audio_url'] = null);
+    }
+  }
+
+  // --- LOGIC SAVE ---
+
+  Future<void> _handleCreateDeck() async {
+    final String title = dbContext['title'].text.trim();
+    if (title.isEmpty) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Vui lòng nhập tiêu đề bộ đề'))); return; }
+    setState(() => _isSaving = true);
+    try {
+      List<Map<String, dynamic>> headersForApi = [];
+      for (int i = 0; i < headers.length; i++) {
+        headersForApi.add({'key': headers[i]['id'], 'name': headers[i]['label'], 'position': i + 1});
+      }
+      List<Map<String, dynamic>> rowsForApi = matrixRows.map((row) {
+        Map<String, dynamic> rowMap = {};
+        for (var header in headers) {
+          final cell = row[header['id']];
+          rowMap[header['id']!] = {'text': (cell['controller'] as TextEditingController).text, 'image_url': cell['image_url'], 'audio_url': cell['audio_url']};
+        }
+        return rowMap;
+      }).toList();
+
+      final success = await context.read<DeckProvider>().bulkImport(deckTitle: title, publicStatus: _publicStatus, parentId: _parentId, headers: headersForApi, rows: rowsForApi);
+      if (mounted && success) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Tạo bộ đề thành công!'))); Navigator.pop(context); }
+    } finally { if (mounted) setState(() => _isSaving = false); }
   }
 
   @override
   Widget build(BuildContext context) {
-    // Mỗi ô nhập liệu chiếm 32% chiều ngang màn hình để hiển thị được ~3 ô cùng lúc
-    final double cellWidth = MediaQuery.of(context).size.width * 0.32;
+    final double cellWidth = MediaQuery.of(context).size.width * 0.35;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -121,239 +217,107 @@ class _CreateDeckScreenState extends State<CreateDeckScreen> {
         backgroundColor: Colors.white,
         elevation: 0,
         actions: [
-          IconButton(
-            onPressed: () { /* Logic lưu vào DB */ },
-            icon: const Icon(Icons.done, color: AppColors.primary, size: 28),
-          ),
+          _isSaving ? const Padding(padding: EdgeInsets.symmetric(horizontal: 16), child: Center(child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))))
+                    : IconButton(onPressed: _handleCreateDeck, icon: const Icon(Icons.done, color: AppColors.primary, size: 28)),
         ],
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildDeckInfo(),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      _buildActionButton(
-                        icon: Icons.add_rounded,
-                        label: 'Nhập',
-                        onPressed: _goToBulkImport,
-                      ),
-                      const SizedBox(width: 12),
-                      _buildActionButton(
-                        icon: Icons.view_column_rounded,
-                        label: 'Thêm cột',
-                        onPressed: _showAddColumnDialog,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Danh sách Ma trận Thẻ bài
-                  ListView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: matrixRows.length,
-                    itemBuilder: (context, index) => _buildMatrixCard(index, cellWidth),
-                  ),
-
-                  const SizedBox(height: 20),
-                  Center(
-                    child: ElevatedButton(
-                      onPressed: _addNewRow,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: AppColors.primary,
-                        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        elevation: 2,
-                      ),
-                      child: const Text('+ THÊM THẺ MỚI', style: TextStyle(fontWeight: FontWeight.bold)),
-                    ),
-                  ),
-                  const SizedBox(height: 50),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // --- WIDGET TẤM THẺ BÀI (MATRIX CARD) ---
-  Widget _buildMatrixCard(int index, double cellWidth) {
-    final row = matrixRows[index];
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [BoxShadow(color: Colors.black.withAlpha(13), blurRadius: 6, offset: const Offset(0, 3))],
-      ),
-      child: Column(
-        children: [
-          // 1. Header: Chỉ số và Nhóm icon chức năng (Ghim cố định trên Card)
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('${index + 1}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
-              Row(
-                children: [
-                  const Icon(Icons.file_download_outlined, size: 20, color: Colors.grey),
-                  const SizedBox(width: 12),
-                  const Icon(Icons.mic_none_rounded, size: 20, color: Colors.grey),
-                  const SizedBox(width: 12),
-                  const Icon(Icons.auto_fix_high_rounded, size: 20, color: Colors.amber),
-                  const SizedBox(width: 12),
-                  const Icon(Icons.menu, size: 20, color: Colors.grey),
-                  const SizedBox(width: 12),
-                  InkWell(
-                    onTap: () => _removeRow(index),
-                    child: const Icon(Icons.delete_outline, size: 20, color: Colors.redAccent),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-
-          // 2. Body: Vùng nhập liệu (Cuộn ngang) + Hình ảnh (Cố định phải)
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // TRÁI: Vùng cuộn ngang chứa các ô nhập liệu động
-              Expanded(
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  physics: const BouncingScrollPhysics(),
-                  child: Row(
-                    children: headers.map((header) {
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: SizedBox(
-                          width: cellWidth,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              TextField(
-                                controller: row[header['id']] as TextEditingController?,
-                                style: const TextStyle(fontSize: 15),
-                                decoration: const InputDecoration(
-                                  isDense: true,
-                                  contentPadding: EdgeInsets.symmetric(vertical: 8),
-                                  focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: AppColors.primary, width: 2)),
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                header['label']!,
-                                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ),
-              ),
-
-              // PHẢI: Nút Hình ảnh ghim cố định không trượt theo nội dung
-              Container(
-                width: 60,
-                height: 60,
-                margin: const EdgeInsets.only(left: 12, top: 4),
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey.shade300),
-                  borderRadius: BorderRadius.circular(8),
-                  color: Colors.grey.shade50,
-                ),
-                child: const Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.image_outlined, size: 24, color: Colors.grey),
-                    Text('Hình ảnh', style: TextStyle(fontSize: 8, color: Colors.grey)),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDeckInfo() {
-    return Column(
-      children: [
-        TextField(
-          controller: dbContext['title'],
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          decoration: const InputDecoration(
-            hintText: 'Tiêu đề',
-            focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: AppColors.primary, width: 2)),
-          ),
-        ),
-        const SizedBox(height: 8),
-        TextField(
-          controller: dbContext['description'],
-          decoration: const InputDecoration(hintText: 'Thêm mô tả...', border: InputBorder.none),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildActionButton({required IconData icon, required String label, required VoidCallback onPressed}) {
-    return InkWell(
-      onTap: onPressed,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.grey.shade300),
-        ),
-        child: Row(
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon, size: 18, color: AppColors.textPrimary),
-            const SizedBox(width: 6),
-            Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+            _buildDeckInfo(),
+            const SizedBox(height: 16),
+            Row(children: [
+              _buildActionButton(icon: Icons.add_rounded, label: 'Nhập', onPressed: () async {
+                final result = await Navigator.push(context, MaterialPageRoute(builder: (context) => const BulkImportScreen()));
+                if (result != null && result is List<List<String>>) {
+                  setState(() {
+                    for (var rowData in result) {
+                      Map<String, dynamic> newRow = {};
+                      for (int i = 0; i < headers.length; i++) {
+                        String val = (i < rowData.length) ? rowData[i] : "";
+                        newRow[headers[i]['id']!] = {'controller': TextEditingController(text: val), 'image_url': null, 'audio_url': null};
+                      }
+                      matrixRows.add(newRow);
+                    }
+                  });
+                }
+              }),
+              const SizedBox(width: 12),
+              _buildActionButton(icon: Icons.view_column_rounded, label: 'Thêm cột', onPressed: _showAddColumnDialog),
+            ]),
+            const SizedBox(height: 16),
+            ListView.builder(shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), itemCount: matrixRows.length, itemBuilder: (context, index) => _buildMatrixCard(index, cellWidth)),
+            const SizedBox(height: 20),
+            Center(child: ElevatedButton(onPressed: _addNewRow, style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: AppColors.primary, padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), elevation: 2), child: const Text('+ THÊM THẺ MỚI', style: TextStyle(fontWeight: FontWeight.bold)))),
+            const SizedBox(height: 50),
           ],
         ),
       ),
     );
   }
 
+  Widget _buildMatrixCard(int index, double cellWidth) {
+    final row = matrixRows[index];
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: Colors.black.withAlpha(13), blurRadius: 6, offset: const Offset(0, 3))]),
+      child: Column(children: [
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text('${index + 1}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)), InkWell(onTap: () => _removeRow(index), child: const Icon(Icons.delete_outline, size: 20, color: Colors.redAccent))]),
+        const SizedBox(height: 12),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          physics: const BouncingScrollPhysics(),
+          child: Row(children: headers.map((header) {
+            final cell = row[header['id']];
+            return Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: Container(
+                width: cellWidth,
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade200), borderRadius: BorderRadius.circular(8)),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  TextField(controller: cell['controller'] as TextEditingController?, style: const TextStyle(fontSize: 15), decoration: InputDecoration(isDense: true, hintText: header['label'], contentPadding: const EdgeInsets.symmetric(vertical: 8), border: InputBorder.none)),
+                  const Divider(height: 8, thickness: 0.5),
+                  Row(children: [
+                    InkWell(onTap: () => _pickImage(cell), child: Icon(cell['image_url'] == null ? Icons.image_outlined : Icons.image, size: 18, color: cell['image_url'] == null ? Colors.grey : AppColors.primary)),
+                    const SizedBox(width: 12),
+                    InkWell(onTap: () => _startRecording(cell), child: cell['audio_url'] == 'uploading' ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : Icon(cell['audio_url'] == null ? Icons.mic_none_rounded : Icons.mic, size: 18, color: cell['audio_url'] == null ? Colors.grey : AppColors.success)),
+                    const Spacer(),
+                    Text(header['label']!, style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.grey)),
+                  ]),
+                ]),
+              ),
+            );
+          }).toList()),
+        ),
+      ]),
+    );
+  }
+
+  Widget _buildDeckInfo() {
+    final decks = context.watch<DeckProvider>().decks;
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const Text('1. Cấu hình Bộ đề', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+      const SizedBox(height: 16),
+      TextField(controller: dbContext['title'], decoration: const InputDecoration(labelText: 'Tiêu đề bộ đề', border: OutlineInputBorder())),
+      const SizedBox(height: 12),
+      DropdownButtonFormField<String>(value: _publicStatus, decoration: const InputDecoration(labelText: 'Trạng thái chia sẻ', border: OutlineInputBorder()), items: const [DropdownMenuItem(value: 'public', child: Text('Public')), DropdownMenuItem(value: 'private', child: Text('Private')), DropdownMenuItem(value: 'hidden', child: Text('Hidden'))], onChanged: (val) => setState(() => _publicStatus = val!)),
+      const SizedBox(height: 12),
+      DropdownButtonFormField<int?>(value: _parentId, decoration: const InputDecoration(labelText: 'Vị trí phân cấp (Cha)', border: OutlineInputBorder()), items: [const DropdownMenuItem(value: null, child: Text('Không có')), ...decks.map((d) => DropdownMenuItem(value: d.id, child: Text(d.title)))], onChanged: (val) => setState(() => _parentId = val)),
+      const SizedBox(height: 12),
+      TextField(controller: dbContext['description'], decoration: const InputDecoration(hintText: 'Thêm mô tả...', border: InputBorder.none)),
+    ]);
+  }
+
+  Widget _buildActionButton({required IconData icon, required String label, required VoidCallback onPressed}) {
+    return InkWell(onTap: onPressed, child: Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.grey.shade300)), child: Row(children: [Icon(icon, size: 18, color: AppColors.textPrimary), const SizedBox(width: 6), Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500))])));
+  }
+
   void _showAddColumnDialog() {
     final controller = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Thêm thuộc tính mới'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: const InputDecoration(hintText: 'Ví dụ: Âm Hán Việt, Ví dụ mẫu...'),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
-          ElevatedButton(
-            onPressed: () {
-              _addNewColumn(controller.text);
-              Navigator.pop(ctx);
-            },
-            child: const Text('Thêm'),
-          ),
-        ],
-      ),
-    );
+    showDialog(context: context, builder: (ctx) => AlertDialog(title: const Text('Thêm thuộc tính mới'), content: TextField(controller: controller, autofocus: true, decoration: const InputDecoration(hintText: 'Ví dụ: Hán Việt, Ví dụ...')), actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')), ElevatedButton(onPressed: () { _addNewColumn(controller.text); Navigator.pop(ctx); }, child: const Text('Thêm'))]));
   }
 }
