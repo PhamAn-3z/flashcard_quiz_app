@@ -11,6 +11,24 @@ import '../providers/deck_provider.dart';
 import '../utils/constants.dart';
 import 'bulk_import_screen.dart';
 
+/// Class định nghĩa cấu trúc dữ liệu cho từng ô trong ma trận
+/// Giúp kiểm soát kiểu dữ liệu chặt chẽ, tránh lỗi subtype
+class CellData {
+  final TextEditingController controller;
+  String? imageUrl;
+  String? audioUrl;
+
+  CellData({
+    required this.controller,
+    this.imageUrl,
+    this.audioUrl,
+  });
+
+  void dispose() {
+    controller.dispose();
+  }
+}
+
 class CreateDeckScreen extends StatefulWidget {
   const CreateDeckScreen({super.key});
 
@@ -31,8 +49,8 @@ class _CreateDeckScreenState extends State<CreateDeckScreen> {
     {'id': 'hiragana', 'label': 'ĐỊNH NGHĨA'},
   ];
 
-  // 3. DỮ LIỆU MA TRẬN 2 CHIỀU
-  List<Map<String, dynamic>> matrixRows = [];
+  // 3. DỮ LIỆU MA TRẬN 2 CHIỀU: Sử dụng Class CellData để đảm bảo an toàn
+  List<Map<String, CellData>> matrixRows = [];
 
   String _publicStatus = 'public';
   int? _parentId;
@@ -49,11 +67,11 @@ class _CreateDeckScreenState extends State<CreateDeckScreen> {
   @override
   void dispose() {
     _audioRecorder.dispose();
-    dbContext['title'].dispose();
-    dbContext['description'].dispose();
+    (dbContext['title'] as TextEditingController).dispose();
+    (dbContext['description'] as TextEditingController).dispose();
     for (var row in matrixRows) {
-      for (var header in headers) {
-        (row[header['id']]['controller'] as TextEditingController?)?.dispose();
+      for (var cell in row.values) {
+        cell.dispose();
       }
     }
     super.dispose();
@@ -67,24 +85,16 @@ class _CreateDeckScreenState extends State<CreateDeckScreen> {
       final String newId = 'col_${DateTime.now().millisecondsSinceEpoch}';
       headers.add({'id': newId, 'label': label.toUpperCase()});
       for (var row in matrixRows) {
-        row[newId] = {
-          'controller': TextEditingController(),
-          'image_url': null,
-          'audio_url': null,
-        };
+        row[newId] = CellData(controller: TextEditingController());
       }
     });
   }
 
   void _addNewRow() {
     setState(() {
-      Map<String, dynamic> newRow = {};
+      Map<String, CellData> newRow = {};
       for (var header in headers) {
-        newRow[header['id']!] = {
-          'controller': TextEditingController(),
-          'image_url': null,
-          'audio_url': null,
-        };
+        newRow[header['id']!] = CellData(controller: TextEditingController());
       }
       matrixRows.add(newRow);
     });
@@ -92,8 +102,8 @@ class _CreateDeckScreenState extends State<CreateDeckScreen> {
 
   void _removeRow(int index) {
     setState(() {
-      for (var header in headers) {
-        (matrixRows[index][header['id']]['controller'] as TextEditingController?)?.dispose();
+      for (var cell in matrixRows[index].values) {
+        cell.dispose();
       }
       matrixRows.removeAt(index);
     });
@@ -101,13 +111,11 @@ class _CreateDeckScreenState extends State<CreateDeckScreen> {
 
   // --- LOGIC MEDIA ---
 
-  Future<void> _pickImage(Map<String, dynamic> cell) async {
+  Future<void> _pickImage(CellData cell) async {
     try {
       FilePickerResult? result = await FilePicker.pickFiles(type: FileType.image, withData: true);
       if (result != null) {
-        // TODO: Tích hợp API upload ảnh của bạn vào đây (tương tự uploadAudio)
-        // Hiện tại gán demo text để icon đổi màu
-        setState(() => cell['image_url'] = 'has_image_demo');
+        setState(() => cell.imageUrl = 'has_image_demo');
         if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Đã chọn ảnh!')));
       }
     } catch (e) {
@@ -115,9 +123,10 @@ class _CreateDeckScreenState extends State<CreateDeckScreen> {
     }
   }
 
-  Future<void> _startRecording(Map<String, dynamic> cell) async {
+  Future<void> _startRecording(CellData cell) async {
     try {
-      if (await _audioRecorder.hasPermission()) {
+      final hasPermission = await _audioRecorder.hasPermission();
+      if (hasPermission) {
         String? path;
         if (!kIsWeb) {
           final tempDir = await getTemporaryDirectory();
@@ -126,13 +135,15 @@ class _CreateDeckScreenState extends State<CreateDeckScreen> {
         if (!mounted) return;
         _showRecordingDialog(cell, path);
         await _audioRecorder.start(const RecordConfig(), path: path ?? '');
+      } else {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Không có quyền truy cập Microphone.'), backgroundColor: Colors.orange));
       }
     } catch (e) {
       debugPrint('Recording error: $e');
     }
   }
 
-  void _showRecordingDialog(Map<String, dynamic> cell, String? path) {
+  void _showRecordingDialog(CellData cell, String? path) {
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -140,11 +151,11 @@ class _CreateDeckScreenState extends State<CreateDeckScreen> {
         title: const Text('Đang thu âm...', style: TextStyle(fontSize: 16)),
         content: const Column(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.mic, size: 50, color: Colors.redAccent), SizedBox(height: 10), Text('Hãy phát âm rõ ràng')]),
         actions: [
-          TextButton(onPressed: () async { await _audioRecorder.stop(); Navigator.pop(ctx); }, child: const Text('Hủy')),
+          TextButton(onPressed: () async { await _audioRecorder.stop(); if (mounted) Navigator.pop(ctx); }, child: const Text('Hủy')),
           ElevatedButton(
             onPressed: () async {
               final pathResult = await _audioRecorder.stop();
-              Navigator.pop(ctx);
+              if (mounted) Navigator.pop(ctx);
               if (pathResult != null) _processRecordedFile(cell, pathResult);
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, foregroundColor: Colors.white),
@@ -155,7 +166,7 @@ class _CreateDeckScreenState extends State<CreateDeckScreen> {
     );
   }
 
-  Future<void> _processRecordedFile(Map<String, dynamic> cell, String path) async {
+  Future<void> _processRecordedFile(CellData cell, String path) async {
     try {
       Uint8List bytes;
       String fileName;
@@ -169,40 +180,62 @@ class _CreateDeckScreenState extends State<CreateDeckScreen> {
         fileName = path.split('/').last;
         if (await file.exists()) await file.delete();
       }
-      setState(() => cell['audio_url'] = 'uploading');
+      
+      setState(() => cell.audioUrl = 'uploading');
+      
       final uploadedUrl = await context.read<DeckProvider>().uploadAudio(fileName, bytes);
+      
       if (mounted) {
-        setState(() => cell['audio_url'] = uploadedUrl);
+        setState(() => cell.audioUrl = uploadedUrl);
         if (uploadedUrl != null) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Tải âm thanh thành công!')));
       }
     } catch (e) {
       debugPrint('Process audio error: $e');
-      setState(() => cell['audio_url'] = null);
+      setState(() => cell.audioUrl = null);
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Lỗi khi tải âm thanh: $e'), backgroundColor: Colors.redAccent));
     }
   }
 
   // --- LOGIC SAVE ---
 
   Future<void> _handleCreateDeck() async {
-    final String title = dbContext['title'].text.trim();
+    final String title = (dbContext['title'] as TextEditingController).text.trim();
     if (title.isEmpty) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Vui lòng nhập tiêu đề bộ đề'))); return; }
+    
     setState(() => _isSaving = true);
     try {
       List<Map<String, dynamic>> headersForApi = [];
       for (int i = 0; i < headers.length; i++) {
         headersForApi.add({'key': headers[i]['id'], 'name': headers[i]['label'], 'position': i + 1});
       }
+      
       List<Map<String, dynamic>> rowsForApi = matrixRows.map((row) {
         Map<String, dynamic> rowMap = {};
         for (var header in headers) {
           final cell = row[header['id']];
-          rowMap[header['id']!] = {'text': (cell['controller'] as TextEditingController).text, 'image_url': cell['image_url'], 'audio_url': cell['audio_url']};
+          if (cell != null) {
+            rowMap[header['id']!] = {
+              'text': cell.controller.text,
+              'image_url': cell.imageUrl,
+              'audio_url': cell.audioUrl
+            };
+          }
         }
         return rowMap;
       }).toList();
 
-      final success = await context.read<DeckProvider>().bulkImport(deckTitle: title, publicStatus: _publicStatus, parentId: _parentId, headers: headersForApi, rows: rowsForApi);
-      if (mounted && success) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Tạo bộ đề thành công!'))); Navigator.pop(context); }
+      final success = await context.read<DeckProvider>().bulkImport(
+        deckTitle: title, 
+        publicStatus: _publicStatus, 
+        parentId: _parentId, 
+        headers: headersForApi, 
+        rows: rowsForApi
+      );
+      
+      if (mounted && success) { 
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Tạo bộ đề thành công!'))); 
+        Navigator.pop(context); 
+      }
     } finally { if (mounted) setState(() => _isSaving = false); }
   }
 
@@ -234,10 +267,10 @@ class _CreateDeckScreenState extends State<CreateDeckScreen> {
                 if (result != null && result is List<List<String>>) {
                   setState(() {
                     for (var rowData in result) {
-                      Map<String, dynamic> newRow = {};
+                      Map<String, CellData> newRow = {};
                       for (int i = 0; i < headers.length; i++) {
                         String val = (i < rowData.length) ? rowData[i] : "";
-                        newRow[headers[i]['id']!] = {'controller': TextEditingController(text: val), 'image_url': null, 'audio_url': null};
+                        newRow[headers[i]['id']!] = CellData(controller: TextEditingController(text: val));
                       }
                       matrixRows.add(newRow);
                     }
@@ -248,7 +281,12 @@ class _CreateDeckScreenState extends State<CreateDeckScreen> {
               _buildActionButton(icon: Icons.view_column_rounded, label: 'Thêm cột', onPressed: _showAddColumnDialog),
             ]),
             const SizedBox(height: 16),
-            ListView.builder(shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), itemCount: matrixRows.length, itemBuilder: (context, index) => _buildMatrixCard(index, cellWidth)),
+            ListView.builder(
+              shrinkWrap: true, 
+              physics: const NeverScrollableScrollPhysics(), 
+              itemCount: matrixRows.length, 
+              itemBuilder: (context, index) => _buildMatrixCard(index, cellWidth)
+            ),
             const SizedBox(height: 20),
             Center(child: ElevatedButton(onPressed: _addNewRow, style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: AppColors.primary, padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), elevation: 2), child: const Text('+ THÊM THẺ MỚI', style: TextStyle(fontWeight: FontWeight.bold)))),
             const SizedBox(height: 50),
@@ -271,7 +309,8 @@ class _CreateDeckScreenState extends State<CreateDeckScreen> {
           scrollDirection: Axis.horizontal,
           physics: const BouncingScrollPhysics(),
           child: Row(children: headers.map((header) {
-            final cell = row[header['id']];
+            final cell = row[header['id']]!;
+
             return Padding(
               padding: const EdgeInsets.only(right: 12),
               child: Container(
@@ -279,14 +318,30 @@ class _CreateDeckScreenState extends State<CreateDeckScreen> {
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade200), borderRadius: BorderRadius.circular(8)),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  TextField(controller: cell['controller'] as TextEditingController?, style: const TextStyle(fontSize: 15), decoration: InputDecoration(isDense: true, hintText: header['label'], contentPadding: const EdgeInsets.symmetric(vertical: 8), border: InputBorder.none)),
+                  TextField(
+                    controller: cell.controller, 
+                    style: const TextStyle(fontSize: 15), 
+                    decoration: InputDecoration(isDense: true, hintText: header['label'], contentPadding: const EdgeInsets.symmetric(vertical: 8), border: InputBorder.none)
+                  ),
                   const Divider(height: 8, thickness: 0.5),
                   Row(children: [
-                    InkWell(onTap: () => _pickImage(cell), child: Icon(cell['image_url'] == null ? Icons.image_outlined : Icons.image, size: 18, color: cell['image_url'] == null ? Colors.grey : AppColors.primary)),
+                    InkWell(
+                      onTap: () => _pickImage(cell), 
+                      child: Icon(cell.imageUrl == null ? Icons.image_outlined : Icons.image, size: 18, color: cell.imageUrl == null ? Colors.grey : AppColors.primary)
+                    ),
                     const SizedBox(width: 12),
-                    InkWell(onTap: () => _startRecording(cell), child: cell['audio_url'] == 'uploading' ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : Icon(cell['audio_url'] == null ? Icons.mic_none_rounded : Icons.mic, size: 18, color: cell['audio_url'] == null ? Colors.grey : AppColors.success)),
+                    InkWell(
+                      onTap: () => _startRecording(cell),
+                      child: cell.audioUrl == 'uploading'
+                          ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                          : Icon(cell.audioUrl == null ? Icons.mic_none_rounded : Icons.mic, size: 18, color: cell.audioUrl == null ? Colors.grey : AppColors.success),
+                    ),
+                    if (cell.audioUrl != null && cell.audioUrl != 'uploading') ...[
+                      const SizedBox(width: 8),
+                      const Icon(Icons.play_circle_fill_rounded, size: 18, color: AppColors.primary),
+                    ],
                     const Spacer(),
-                    Text(header['label']!, style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.grey)),
+                    Text(header['label'] ?? '', style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.grey)),
                   ]),
                 ]),
               ),
