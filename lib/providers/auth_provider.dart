@@ -179,7 +179,21 @@ class AuthProvider with ChangeNotifier {
       );
 
       if (response.statusCode == 200) {
-        await _fetchProfile(); // Refresh local user data
+        // FIX: Cập nhật State cục bộ ngay lập tức (Giải quyết Lỗi đồng bộ 1)
+        if (_user != null) {
+          _user = User(
+            id: _user!.id,
+            username: _user!.username,
+            email: _user!.email,
+            role: _user!.role,
+            isPremium: _user!.isPremium,
+            fullName: fullName,
+            phoneNumber: phoneNumber,
+          );
+          notifyListeners();
+        }
+
+        await _fetchProfile(); // Refresh để đồng bộ chuẩn với DB
         _isLoading = false;
         notifyListeners();
         return true;
@@ -215,10 +229,25 @@ class AuthProvider with ChangeNotifier {
       final response = await _dio.get('/user/profile');
       final data = response.data;
 
-      final userData = (data['data'] != null) ? data['data'] : data;
+      dynamic userData = (data['data'] != null) ? data['data'] : data;
+      if (userData is List && userData.isNotEmpty) {
+        userData = userData[0];
+      }
+      
+      // FIX 1: Khớp với Backend trả về key là "profile" thay vì "user_profiles"
+      if (userData != null && userData['profile'] != null) {
+        final profileData = userData['profile'];
+        // Xử lý cả trường hợp profile là Object hoặc List 1 phần tử
+        final profile = (profileData is List && profileData.isNotEmpty) ? profileData[0] : profileData;
+        if (profile is Map) {
+          // Gộp dữ liệu từ profile vào userData để lấy full_name, phone_number...
+          userData = {...userData, ...Map<String, dynamic>.from(profile)};
+        }
+      }
+
+      if (userData == null) return;
 
       // Map API response to User model
-      // BE có thể trả về user_id (snake_case) hoặc id
       final dynamic idValue = userData['user_id'] ?? userData['id'] ?? userData['sub'];
       
       _user = User(
@@ -226,7 +255,8 @@ class AuthProvider with ChangeNotifier {
         username: userData['username'] ?? userData['email']?.split('@')[0] ?? 'user',
         email: userData['email'] ?? '',
         fullName: userData['full_name'] ?? userData['name'] ?? '',
-        role: userData['role'] ?? 'user',
+        // FIX 3: Khớp với Backend trả về "role_id"
+        role: (userData['role_id'] ?? userData['role'] ?? 'user').toString(),
         isPremium: userData['is_premium'] == true,
         phoneNumber: userData['phone_number'],
       );
