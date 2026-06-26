@@ -9,6 +9,7 @@ import 'help_guide_screen.dart';
 import 'about_screen.dart';
 import 'study_history_screen.dart';
 import 'edit_profile_screen.dart';
+import 'user_profile_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -141,6 +142,12 @@ class ProfileScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
                   _buildModernMenu(context, [
+                    _menuItem(
+                      icon: Icons.person_outline_rounded,
+                      color: Colors.blueAccent,
+                      title: 'Thông tin người dùng',
+                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const UserProfileScreen())),
+                    ),
                     _menuItem(
                       icon: Icons.history_rounded, 
                       color: Colors.teal, 

@@ -228,6 +228,7 @@ class AuthProvider with ChangeNotifier {
         fullName: userData['full_name'] ?? userData['name'] ?? '',
         role: userData['role'] ?? 'user',
         isPremium: userData['is_premium'] == true,
+        phoneNumber: userData['phone_number'],
       );
 
       // We still use mock stats for now unless API provides them
