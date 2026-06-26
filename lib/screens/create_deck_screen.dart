@@ -10,6 +10,7 @@ import 'dart:typed_data';
 import '../providers/deck_provider.dart';
 import '../utils/constants.dart';
 import 'bulk_import_screen.dart';
+import '../data/services/cloudinary_service.dart';
 
 /// Class định nghĩa cấu trúc dữ liệu cho từng ô trong ma trận
 /// Giúp kiểm soát kiểu dữ liệu chặt chẽ, tránh lỗi subtype
@@ -56,6 +57,7 @@ class _CreateDeckScreenState extends State<CreateDeckScreen> {
   int? _parentId;
   bool _isSaving = false;
   final AudioRecorder _audioRecorder = AudioRecorder();
+  final CloudinaryService _cloudinaryService = CloudinaryService();
 
   @override
   void initState() {
@@ -113,13 +115,41 @@ class _CreateDeckScreenState extends State<CreateDeckScreen> {
 
   Future<void> _pickImage(CellData cell) async {
     try {
-      FilePickerResult? result = await FilePicker.pickFiles(type: FileType.image, withData: true);
-      if (result != null) {
-        setState(() => cell.imageUrl = 'has_image_demo');
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Đã chọn ảnh!')));
+      FilePickerResult? result = await FilePicker.pickFiles(
+        type: FileType.image,
+        allowMultiple: false,
+      );
+
+      if (result != null && result.files.single.path != null) {
+        // Hiển thị trạng thái đang tải lên
+        setState(() => cell.imageUrl = 'uploading');
+
+        final String? uploadedUrl = await _cloudinaryService.uploadImage(
+          File(result.files.single.path!),
+        );
+
+        if (mounted) {
+          setState(() {
+            cell.imageUrl = uploadedUrl;
+          });
+
+          if (uploadedUrl != null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Tải ảnh lên thành công!')),
+            );
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Tải ảnh lên thất bại. Kiểm tra cấu hình .env'),
+                backgroundColor: Colors.redAccent,
+              ),
+            );
+          }
+        }
       }
     } catch (e) {
       debugPrint('Error picking image: $e');
+      setState(() => cell.imageUrl = null);
     }
   }
 
@@ -326,8 +356,18 @@ class _CreateDeckScreenState extends State<CreateDeckScreen> {
                   const Divider(height: 8, thickness: 0.5),
                   Row(children: [
                     InkWell(
-                      onTap: () => _pickImage(cell), 
-                      child: Icon(cell.imageUrl == null ? Icons.image_outlined : Icons.image, size: 18, color: cell.imageUrl == null ? Colors.grey : AppColors.primary)
+                      onTap: () => _pickImage(cell),
+                      child: cell.imageUrl == 'uploading'
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Icon(
+                              cell.imageUrl == null ? Icons.image_outlined : Icons.image,
+                              size: 18,
+                              color: cell.imageUrl == null ? Colors.grey : AppColors.primary,
+                            ),
                     ),
                     const SizedBox(width: 12),
                     InkWell(

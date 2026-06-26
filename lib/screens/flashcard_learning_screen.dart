@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:audioplayers/audioplayers.dart';
 import '../models/flashcard.dart';
 import '../providers/deck_provider.dart';
 import '../utils/constants.dart';
@@ -21,11 +22,26 @@ class _FlashcardLearningScreenState extends State<FlashcardLearningScreen> {
   int? _activeGroupIdForPopup;
   bool _isCardFlipped = false;
   bool _isLoading = true;
+  final AudioPlayer _audioPlayer = AudioPlayer();
 
   @override
   void initState() {
     super.initState();
     _loadStudyData();
+  }
+
+  @override
+  void dispose() {
+    _audioPlayer.dispose();
+    super.dispose();
+  }
+
+  Future<void> _playAudio(String url) async {
+    try {
+      await _audioPlayer.play(UrlSource(url));
+    } catch (e) {
+      debugPrint('Error playing audio: $e');
+    }
   }
 
   Future<void> _loadStudyData() async {
@@ -105,6 +121,13 @@ class _FlashcardLearningScreenState extends State<FlashcardLearningScreen> {
         .take(6)
         .toList();
 
+    // Lấy dữ liệu ô hiện tại (Mặt trước/sau)
+    final activeHeader = _isCardFlipped ? headerBack : headerFront;
+    final activeCell = currentCard.cardData.firstWhere(
+      (c) => c.groupId == activeHeader.groupId,
+      orElse: () => currentCard.cardData[0],
+    );
+
     return Scaffold(
       backgroundColor: const Color(0xFFF1F5F9),
       appBar: AppBar(
@@ -142,7 +165,7 @@ class _FlashcardLearningScreenState extends State<FlashcardLearningScreen> {
                 GestureDetector(
                   onTap: _flipCard,
                   child: Container(
-                    width: MediaQuery.of(context).size.width * 0.80, // Chiếm 80% diện tích
+                    width: MediaQuery.of(context).size.width * 0.80,
                     height: MediaQuery.of(context).size.height * 0.5,
                     decoration: BoxDecoration(
                       color: Colors.white,
@@ -155,20 +178,51 @@ class _FlashcardLearningScreenState extends State<FlashcardLearningScreen> {
                         )
                       ],
                     ),
-                    child: Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(24.0),
-                        child: Text(
-                          _isCardFlipped 
-                            ? currentCard.getCellText(headerBack.groupId)
-                            : currentCard.getCellText(headerFront.groupId),
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: _isCardFlipped ? 32 : 50,
-                            fontWeight: FontWeight.bold,
+                    child: Stack(
+                      children: [
+                        // Nội dung Text chính
+                        Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(24.0),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                // Hiển thị Ảnh nếu có
+                                if (activeCell.imageUrl != null)
+                                  Container(
+                                    margin: const EdgeInsets.only(bottom: 20),
+                                    height: 120,
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(16),
+                                      image: DecorationImage(
+                                        image: NetworkImage(activeCell.imageUrl!),
+                                        fit: BoxFit.contain,
+                                      ),
+                                    ),
+                                  ),
+                                Text(
+                                  activeCell.text,
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: _isCardFlipped ? 32 : 50,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                      ),
+                        // Nút phát âm thanh ở góc nếu có
+                        if (activeCell.audioUrl != null)
+                          Positioned(
+                            top: 16,
+                            right: 16,
+                            child: IconButton(
+                              icon: const Icon(Icons.volume_up_rounded, color: AppColors.primary, size: 28),
+                              onPressed: () => _playAudio(activeCell.audioUrl!),
+                            ),
+                          ),
+                      ],
                     ),
                   ),
                 ),
@@ -255,7 +309,7 @@ class _FlashcardLearningScreenState extends State<FlashcardLearningScreen> {
     final content = card.cardData.firstWhere((c) => c.groupId == activeHeader.groupId);
 
     return Container(
-      width: 160,
+      width: 180,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -275,15 +329,27 @@ class _FlashcardLearningScreenState extends State<FlashcardLearningScreen> {
             activeHeader.groupName,
             style: const TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
+          if (content.imageUrl != null)
+            Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              height: 80,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                image: DecorationImage(image: NetworkImage(content.imageUrl!), fit: BoxFit.contain),
+              ),
+            ),
           Text(
             content.text,
             textAlign: TextAlign.center,
             style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
           if (content.audioUrl != null) ...[
-            const SizedBox(height: 8),
-            const Icon(Icons.volume_up, size: 20, color: AppColors.primary),
+            const SizedBox(height: 12),
+            IconButton(
+              icon: const Icon(Icons.volume_up_rounded, color: AppColors.primary, size: 24),
+              onPressed: () => _playAudio(content.audioUrl!),
+            ),
           ]
         ],
       ),

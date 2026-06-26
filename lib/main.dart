@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flashcard_quiz_app/providers/auth_provider.dart';
 import 'package:flashcard_quiz_app/providers/notification_provider.dart';
 import 'package:flashcard_quiz_app/providers/deck_provider.dart';
@@ -10,6 +11,13 @@ import 'package:flashcard_quiz_app/utils/constants.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Nạp biến môi trường từ file .env
+  try {
+    await dotenv.load(fileName: ".env");
+  } catch (e) {
+    debugPrint("Lỗi nạp file .env: $e");
+  }
 
   runApp(
     MultiProvider(
