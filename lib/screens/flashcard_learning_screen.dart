@@ -23,11 +23,27 @@ class _FlashcardLearningScreenState extends State<FlashcardLearningScreen> {
   bool _isCardFlipped = false;
   bool _isLoading = true;
   final AudioPlayer _audioPlayer = AudioPlayer();
+  String? _currentlyPlayingUrl;
 
   @override
   void initState() {
     super.initState();
     _loadStudyData();
+    _initAudioListeners();
+  }
+
+  void _initAudioListeners() {
+    _audioPlayer.onPlayerStateChanged.listen((state) {
+      if (mounted) {
+        setState(() {
+          if (state == PlayerState.playing) {
+            // Đã có logic trong _playAudio
+          } else {
+            _currentlyPlayingUrl = null;
+          }
+        });
+      }
+    });
   }
 
   @override
@@ -38,9 +54,16 @@ class _FlashcardLearningScreenState extends State<FlashcardLearningScreen> {
 
   Future<void> _playAudio(String url) async {
     try {
-      await _audioPlayer.play(UrlSource(url));
+      if (_currentlyPlayingUrl == url) {
+        await _audioPlayer.stop();
+        setState(() => _currentlyPlayingUrl = null);
+      } else {
+        setState(() => _currentlyPlayingUrl = url);
+        await _audioPlayer.play(UrlSource(url));
+      }
     } catch (e) {
       debugPrint('Error playing audio: $e');
+      setState(() => _currentlyPlayingUrl = null);
     }
   }
 
@@ -218,7 +241,16 @@ class _FlashcardLearningScreenState extends State<FlashcardLearningScreen> {
                             top: 16,
                             right: 16,
                             child: IconButton(
-                              icon: const Icon(Icons.volume_up_rounded, color: AppColors.primary, size: 28),
+                              icon: _currentlyPlayingUrl == activeCell.audioUrl
+                                  ? const SizedBox(
+                                      width: 24,
+                                      height: 24,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+                                      ),
+                                    )
+                                  : const Icon(Icons.volume_up_rounded, color: AppColors.primary, size: 28),
                               onPressed: () => _playAudio(activeCell.audioUrl!),
                             ),
                           ),
