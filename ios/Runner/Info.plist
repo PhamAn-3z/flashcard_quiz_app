@@ -66,5 +66,9 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Ứng dụng cần sử dụng Microphone để thu âm phát âm của bạn.</string>
+	<key>NSAppleMusicUsageDescription</key>
+	<string>Ứng dụng cần truy cập thư viện nhạc để lấy file âm thanh.</string>
 </dict>
 </plist>

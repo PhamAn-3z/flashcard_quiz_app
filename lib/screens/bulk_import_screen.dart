@@ -191,7 +191,22 @@ class _BulkImportScreenState extends State<BulkImportScreen> {
     final decks = context.watch<DeckProvider>().decks;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Nhập hàng loạt')),
+      appBar: AppBar(
+        title: const Text('Nhập hàng loạt'),
+        actions: [
+          if (_previewRows.isNotEmpty)
+            TextButton(
+              onPressed: () {
+                // Chuyển đổi _previewRows (Map) thành List<List<String>>
+                List<List<String>> parsedData = _previewRows.map((row) {
+                  return _previewHeaders.map((h) => row[h['key']]?.toString() ?? "").toList();
+                }).toList();
+                Navigator.pop(context, parsedData);
+              },
+              child: const Text('Xác nhận nhập', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+        ],
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
