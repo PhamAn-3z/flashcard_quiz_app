@@ -129,7 +129,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               const SizedBox(height: 40),
               _buildEditField('Họ và tên', _nameController, Icons.badge_outlined),
               const SizedBox(height: 20),
-              _buildEditField('Tên đăng nhập', _usernameController, Icons.alternate_email_rounded),
+              _buildEditField('Tên đăng nhập', _usernameController, Icons.alternate_email_rounded, enabled: false),
               const SizedBox(height: 20),
               _buildEditField('Số điện thoại', _phoneController, Icons.phone_android_rounded, keyboardType: TextInputType.phone),
             ],
@@ -139,7 +139,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 
-  Widget _buildEditField(String label, TextEditingController controller, IconData icon, {TextInputType? keyboardType}) {
+  Widget _buildEditField(String label, TextEditingController controller, IconData icon, {TextInputType? keyboardType, bool enabled = true}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -148,13 +148,18 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         TextFormField(
           controller: controller,
           keyboardType: keyboardType,
-          style: const TextStyle(fontWeight: FontWeight.w600),
+          enabled: enabled,
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            color: enabled ? AppColors.textPrimary : AppColors.textSecondary,
+          ),
           decoration: InputDecoration(
-            prefixIcon: Icon(icon, color: AppColors.primary, size: 20),
+            prefixIcon: Icon(icon, color: enabled ? AppColors.primary : Colors.grey, size: 20),
             filled: true,
-            fillColor: Colors.white,
+            fillColor: enabled ? Colors.white : Colors.grey.shade100,
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
             enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+            disabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Colors.grey.shade200)),
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           ),
           validator: (v) => v!.isEmpty ? 'Không được để trống' : null,

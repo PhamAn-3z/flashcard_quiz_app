@@ -41,10 +41,6 @@ class HomeScreen extends StatelessWidget {
                       _buildSectionHeader('BỘ THẺ ĐỀ XUẤT'),
                       const SizedBox(height: 12),
                       _buildHorizontalDecks(context),
-                      const SizedBox(height: 32),
-                      _buildSectionHeader('LỘ TRÌNH JLPT'),
-                      const SizedBox(height: 12),
-                      _buildJLPTPathways(),
                       const SizedBox(height: 40),
                     ],
                   ),
@@ -158,8 +154,6 @@ class HomeScreen extends StatelessWidget {
           _buildMenuIcon(Icons.psychology_rounded, 'Quiz', Colors.red, () {
             Navigator.push(context, MaterialPageRoute(builder: (_) => const QuizListScreen()));
           }),
-          _buildMenuIcon(Icons.menu_book_rounded, 'Ngữ pháp', Colors.orange, () {}),
-          _buildMenuIcon(Icons.school_rounded, 'JLPT', Colors.purple, () {}),
         ],
       ),
     );
@@ -213,29 +207,6 @@ class HomeScreen extends StatelessWidget {
           const SizedBox(height: 4),
           Text(sub, style: TextStyle(fontSize: 12, color: Colors.grey.shade500), maxLines: 1, overflow: TextOverflow.ellipsis),
         ],
-      ),
-    );
-  }
-
-  Widget _buildJLPTPathways() {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: ['N5', 'N4', 'N3', 'N2', 'N1'].map((level) {
-          return Container(
-            margin: const EdgeInsets.only(right: 12),
-            width: 70,
-            height: 70,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              shape: BoxShape.circle,
-              border: Border.all(color: AppColors.primary.withOpacity(0.2), width: 2),
-            ),
-            child: Center(
-              child: Text(level, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.primary)),
-            ),
-          );
-        }).toList(),
       ),
     );
   }
