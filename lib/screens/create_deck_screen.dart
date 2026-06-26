@@ -11,6 +11,7 @@ import '../providers/deck_provider.dart';
 import '../utils/constants.dart';
 import 'bulk_import_screen.dart';
 import '../data/services/cloudinary_service.dart';
+import 'package:audioplayers/audioplayers.dart';
 
 /// Class định nghĩa cấu trúc dữ liệu cho từng ô trong ma trận
 /// Giúp kiểm soát kiểu dữ liệu chặt chẽ, tránh lỗi subtype
@@ -57,6 +58,8 @@ class _CreateDeckScreenState extends State<CreateDeckScreen> {
   int? _parentId;
   bool _isSaving = false;
   final AudioRecorder _audioRecorder = AudioRecorder();
+  final AudioPlayer _audioPlayer = AudioPlayer();
+  String? _playingUrl;
   final CloudinaryService _cloudinaryService = CloudinaryService();
 
   @override
@@ -64,11 +67,21 @@ class _CreateDeckScreenState extends State<CreateDeckScreen> {
     super.initState();
     _addNewRow();
     _addNewRow();
+
+    // Lắng nghe sự kiện kết thúc âm thanh để cập nhật UI
+    _audioPlayer.onPlayerComplete.listen((event) {
+      if (mounted) {
+        setState(() {
+          _playingUrl = null;
+        });
+      }
+    });
   }
 
   @override
   void dispose() {
     _audioRecorder.dispose();
+    _audioPlayer.dispose();
     (dbContext['title'] as TextEditingController).dispose();
     (dbContext['description'] as TextEditingController).dispose();
     for (var row in matrixRows) {
@@ -226,6 +239,28 @@ class _CreateDeckScreenState extends State<CreateDeckScreen> {
     }
   }
 
+  Future<void> _playAudio(String url) async {
+    try {
+      if (_playingUrl == url) {
+        await _audioPlayer.stop();
+        setState(() => _playingUrl = null);
+        return;
+      }
+
+      await _audioPlayer.stop();
+      setState(() => _playingUrl = url);
+      await _audioPlayer.play(UrlSource(url));
+    } catch (e) {
+      debugPrint('Error playing audio: $e');
+      setState(() => _playingUrl = null);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Không thể phát âm thanh')),
+        );
+      }
+    }
+  }
+
   // --- LOGIC SAVE ---
 
   Future<void> _handleCreateDeck() async {
@@ -271,7 +306,12 @@ class _CreateDeckScreenState extends State<CreateDeckScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final double cellWidth = MediaQuery.of(context).size.width * 0.35;
+    final double screenWidth = MediaQuery.of(context).size.width;
+    // Tính toán chiều rộng cell linh hoạt: nếu ít cột thì giãn đều, nhiều cột thì scroll
+    final double availableWidth = screenWidth - 64; // 16*2 padding lề + 16*2 padding card
+    final double cellWidth = headers.length <= 2
+        ? (availableWidth - (headers.length - 1) * 12) / headers.length
+        : screenWidth * 0.45;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -291,25 +331,40 @@ class _CreateDeckScreenState extends State<CreateDeckScreen> {
           children: [
             _buildDeckInfo(),
             const SizedBox(height: 16),
-            Row(children: [
-              _buildActionButton(icon: Icons.add_rounded, label: 'Nhập', onPressed: () async {
-                final result = await Navigator.push(context, MaterialPageRoute(builder: (context) => const BulkImportScreen()));
-                if (result != null && result is List<List<String>>) {
-                  setState(() {
-                    for (var rowData in result) {
-                      Map<String, CellData> newRow = {};
-                      for (int i = 0; i < headers.length; i++) {
-                        String val = (i < rowData.length) ? rowData[i] : "";
-                        newRow[headers[i]['id']!] = CellData(controller: TextEditingController(text: val));
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                _buildActionButton(
+                    icon: Icons.add_rounded,
+                    label: 'Nhập',
+                    onPressed: () async {
+                      final result = await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (context) => const BulkImportScreen()));
+                      if (result != null && result is List<List<String>>) {
+                        setState(() {
+                          for (var rowData in result) {
+                            Map<String, CellData> newRow = {};
+                            for (int i = 0; i < headers.length; i++) {
+                              String val =
+                                  (i < rowData.length) ? rowData[i] : "";
+                              newRow[headers[i]['id']!] = CellData(
+                                  controller:
+                                      TextEditingController(text: val));
+                            }
+                            matrixRows.add(newRow);
+                          }
+                        });
                       }
-                      matrixRows.add(newRow);
-                    }
-                  });
-                }
-              }),
-              const SizedBox(width: 12),
-              _buildActionButton(icon: Icons.view_column_rounded, label: 'Thêm cột', onPressed: _showAddColumnDialog),
-            ]),
+                    }),
+                _buildActionButton(
+                    icon: Icons.view_column_rounded,
+                    label: 'Thêm cột',
+                    onPressed: _showAddColumnDialog),
+              ],
+            ),
             const SizedBox(height: 16),
             ListView.builder(
               shrinkWrap: true, 
@@ -338,11 +393,13 @@ class _CreateDeckScreenState extends State<CreateDeckScreen> {
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           physics: const BouncingScrollPhysics(),
-          child: Row(children: headers.map((header) {
+          child: Row(
+              children: headers.map((header) {
             final cell = row[header['id']]!;
 
             return Padding(
-              padding: const EdgeInsets.only(right: 12),
+              padding: EdgeInsets.only(
+                  right: header == headers.last ? 0 : 12),
               child: Container(
                 width: cellWidth,
                 padding: const EdgeInsets.all(8),
@@ -376,9 +433,21 @@ class _CreateDeckScreenState extends State<CreateDeckScreen> {
                           ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
                           : Icon(cell.audioUrl == null ? Icons.mic_none_rounded : Icons.mic, size: 18, color: cell.audioUrl == null ? Colors.grey : AppColors.success),
                     ),
-                    if (cell.audioUrl != null && cell.audioUrl != 'uploading') ...[
+                    if (cell.audioUrl != null &&
+                        cell.audioUrl != 'uploading') ...[
                       const SizedBox(width: 8),
-                      const Icon(Icons.play_circle_fill_rounded, size: 18, color: AppColors.primary),
+                      InkWell(
+                        onTap: () => _playAudio(cell.audioUrl!),
+                        child: Icon(
+                          _playingUrl == cell.audioUrl
+                              ? Icons.stop_circle_rounded
+                              : Icons.play_circle_fill_rounded,
+                          size: 20,
+                          color: _playingUrl == cell.audioUrl
+                              ? Colors.redAccent
+                              : AppColors.primary,
+                        ),
+                      ),
                     ],
                     const Spacer(),
                     Text(header['label'] ?? '', style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.grey)),
@@ -395,20 +464,69 @@ class _CreateDeckScreenState extends State<CreateDeckScreen> {
   Widget _buildDeckInfo() {
     final decks = context.watch<DeckProvider>().decks;
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const Text('1. Cấu hình Bộ đề', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+      const Text('1. Cấu hình Bộ đề',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
       const SizedBox(height: 16),
-      TextField(controller: dbContext['title'], decoration: const InputDecoration(labelText: 'Tiêu đề bộ đề', border: OutlineInputBorder())),
+      TextField(
+          controller: dbContext['title'],
+          decoration: const InputDecoration(
+              labelText: 'Tiêu đề bộ đề', border: OutlineInputBorder())),
       const SizedBox(height: 12),
-      DropdownButtonFormField<String>(value: _publicStatus, decoration: const InputDecoration(labelText: 'Trạng thái chia sẻ', border: OutlineInputBorder()), items: const [DropdownMenuItem(value: 'public', child: Text('Public')), DropdownMenuItem(value: 'private', child: Text('Private')), DropdownMenuItem(value: 'hidden', child: Text('Hidden'))], onChanged: (val) => setState(() => _publicStatus = val!)),
+      DropdownButtonFormField<String>(
+        value: _publicStatus,
+        isExpanded: true,
+        decoration: const InputDecoration(
+            labelText: 'Trạng thái chia sẻ', border: OutlineInputBorder()),
+        items: const [
+          DropdownMenuItem(value: 'public', child: Text('Public')),
+          DropdownMenuItem(value: 'private', child: Text('Private')),
+          DropdownMenuItem(value: 'hidden', child: Text('Hidden'))
+        ],
+        onChanged: (val) => setState(() => _publicStatus = val!),
+      ),
       const SizedBox(height: 12),
-      DropdownButtonFormField<int?>(value: _parentId, decoration: const InputDecoration(labelText: 'Vị trí phân cấp (Cha)', border: OutlineInputBorder()), items: [const DropdownMenuItem(value: null, child: Text('Không có')), ...decks.map((d) => DropdownMenuItem(value: d.id, child: Text(d.title)))], onChanged: (val) => setState(() => _parentId = val)),
+      DropdownButtonFormField<int?>(
+        value: _parentId,
+        isExpanded: true,
+        decoration: const InputDecoration(
+            labelText: 'Vị trí phân cấp (Cha)', border: OutlineInputBorder()),
+        items: [
+          const DropdownMenuItem(value: null, child: Text('Không có')),
+          ...decks.map((d) => DropdownMenuItem(
+                value: d.id,
+                child: Text(d.title,
+                    overflow: TextOverflow.ellipsis, maxLines: 1),
+              ))
+        ],
+        onChanged: (val) => setState(() => _parentId = val),
+      ),
       const SizedBox(height: 12),
-      TextField(controller: dbContext['description'], decoration: const InputDecoration(hintText: 'Thêm mô tả...', border: InputBorder.none)),
+      TextField(
+          controller: dbContext['description'],
+          decoration: const InputDecoration(
+              hintText: 'Thêm mô tả...', border: InputBorder.none)),
     ]);
   }
 
-  Widget _buildActionButton({required IconData icon, required String label, required VoidCallback onPressed}) {
-    return InkWell(onTap: onPressed, child: Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.grey.shade300)), child: Row(children: [Icon(icon, size: 18, color: AppColors.textPrimary), const SizedBox(width: 6), Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500))])));
+  Widget _buildActionButton(
+      {required IconData icon,
+      required String label,
+      required VoidCallback onPressed}) {
+    return InkWell(
+        onTap: onPressed,
+        child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.grey.shade300)),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(icon, size: 18, color: AppColors.textPrimary),
+              const SizedBox(width: 6),
+              Text(label,
+                  style: const TextStyle(
+                      fontSize: 13, fontWeight: FontWeight.w500))
+            ])));
   }
 
   void _showAddColumnDialog() {

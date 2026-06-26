@@ -23,6 +23,8 @@ class DeckProvider with ChangeNotifier {
   List<Deck> _publicDecks = [];
   List<Deck> _myDecks = [];
   bool _isLoading = false;
+  bool _isFetchingPublic = false;
+  bool _isFetchingMy = false;
   String? _token;
 
   final Dio _dio = Dio(BaseOptions(
@@ -37,33 +39,36 @@ class DeckProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
 
   void updateToken(String? token) {
+    if (_token == token && (_publicDecks.isNotEmpty || _isFetchingPublic)) return;
+
     bool tokenChanged = _token != token;
     _token = token;
+
     if (_token != null) {
       _dio.options.headers['Authorization'] = 'Bearer $_token';
-      if (tokenChanged) {
-        Future.microtask(() {
-          fetchPublicDecks();
-          fetchMyDecks();
-        });
-      }
     } else {
       _dio.options.headers.remove('Authorization');
+    }
+
+    Future.microtask(() {
       if (tokenChanged) {
-        _myDecks = [];
-        Future.microtask(() {
-          fetchPublicDecks();
+        if (_token == null) {
+          _myDecks = [];
           notifyListeners();
-        });
+          fetchPublicDecks();
+        } else {
+          fetchMyDecks();
+          fetchPublicDecks();
+        }
+      } else if (_publicDecks.isEmpty && !_isFetchingPublic) {
+        fetchPublicDecks();
       }
-    }
-    
-    if (_publicDecks.isEmpty) {
-      Future.microtask(() => fetchPublicDecks());
-    }
+    });
   }
 
   Future<void> fetchPublicDecks() async {
+    if (_isFetchingPublic) return;
+    _isFetchingPublic = true;
     try {
       final response = await _dio.get('/decks');
       if (response.statusCode == 200 && response.data['success'] == true) {
@@ -73,12 +78,19 @@ class DeckProvider with ChangeNotifier {
       }
     } catch (e) {
       debugPrint('Error fetching public decks: $e');
+    } finally {
+      _isFetchingPublic = false;
     }
   }
 
   Future<void> fetchMyDecks() async {
+    if (_isFetchingMy) return;
+    _isFetchingMy = true;
     _isLoading = true;
-    notifyListeners();
+    
+    // Thông báo trạng thái loading sau khi kết thúc build hiện tại
+    Future.delayed(Duration.zero, () => notifyListeners());
+
     try {
       final response = await _dio.get('/decks/my-decks');
       if (response.statusCode == 200 && response.data['success'] == true) {
@@ -89,6 +101,7 @@ class DeckProvider with ChangeNotifier {
       debugPrint('Error fetching my decks: $e');
     } finally {
       _isLoading = false;
+      _isFetchingMy = false;
       notifyListeners();
     }
   }
@@ -251,15 +264,14 @@ class DeckProvider with ChangeNotifier {
         final String fileUrl = urlResponse.data['data']['fileUrl'];
 
         // 2. Tải bytes lên Cloudflare R2 bằng phương thức PUT
-        // Lưu ý: Không sử dụng Dio headers của ứng dụng (Authorization) vì đây là link trực tiếp tới R2
         final uploadDio = Dio();
         final response = await uploadDio.put(
           uploadUrl,
-          data: Stream.fromIterable([fileBytes]),
+          data: fileBytes, // Truyền trực tiếp list bytes
           options: Options(
             headers: {
               Headers.contentLengthHeader: fileBytes.length,
-              // Content-Type có thể để trống hoặc set tùy theo file
+              'Content-Type': 'application/octet-stream', // Xác định kiểu dữ liệu
             },
           ),
         );
