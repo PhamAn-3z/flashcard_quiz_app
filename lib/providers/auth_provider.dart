@@ -91,6 +91,7 @@ class AuthProvider with ChangeNotifier {
     required String username,
     required String email,
     required String password,
+    required String confirmedPassword,
     required String fullName,
   }) async {
     _isLoading = true;
@@ -102,6 +103,7 @@ class AuthProvider with ChangeNotifier {
         data: {
           'email': email,
           'password': password,
+          'confirmed_password': confirmedPassword,
           'username': username,
           'full_name': fullName,
         },

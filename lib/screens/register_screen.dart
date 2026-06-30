@@ -17,12 +17,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
   String _fullName = '';
   String _email = '';
   String _password = '';
+  String _confirmPassword = '';
   bool _isLoading = false;
   bool _obscurePassword = true;
 
   void _submit() async {
     if (_formKey.currentState!.validate()) {
       _formKey.currentState!.save();
+
+      // Kiểm tra mật khẩu khớp nhau
+      if (_password != _confirmPassword) {
+        _showStyledSnackBar('Mật khẩu xác nhận không khớp!', isError: true);
+        return;
+      }
       
       setState(() => _isLoading = true);
       final auth = context.read<AuthProvider>();
@@ -31,6 +38,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         username: _username,
         email: _email,
         password: _password,
+        confirmedPassword: _confirmPassword,
         fullName: _fullName,
       );
       
@@ -166,8 +174,26 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             isPassword: true,
                             obscureText: _obscurePassword,
                             onTogglePassword: () => setState(() => _obscurePassword = !_obscurePassword),
-                            validator: (v) => v!.length < 6 ? 'Mật khẩu tối thiểu 6 ký tự' : null,
+                            validator: (v) {
+                              if (v == null || v.length < 8) return 'Mật khẩu tối thiểu 8 ký tự';
+                              if (!RegExp(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$').hasMatch(v)) {
+                                return 'Cần có chữ hoa, chữ thường và số';
+                              }
+                              return null;
+                            },
                             onSaved: (v) => _password = v!,
+                          ),
+                          const SizedBox(height: 16),
+                          
+                          _buildModernField(
+                            label: 'Xác nhận mật khẩu',
+                            hint: '••••••••',
+                            icon: Icons.lock_reset_rounded,
+                            isPassword: true,
+                            obscureText: _obscurePassword,
+                            onTogglePassword: () => setState(() => _obscurePassword = !_obscurePassword),
+                            validator: (v) => v!.isEmpty ? 'Vui lòng xác nhận mật khẩu' : null,
+                            onSaved: (v) => _confirmPassword = v!,
                           ),
                           const SizedBox(height: 32),
                           
