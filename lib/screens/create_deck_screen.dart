@@ -18,11 +18,13 @@ import 'package:audioplayers/audioplayers.dart';
 class CellData {
   final TextEditingController controller;
   String? imageUrl;
+  String? localPreviewPath; // Thêm biến lưu đường dẫn cục bộ
   String? audioUrl;
 
   CellData({
     required this.controller,
     this.imageUrl,
+    this.localPreviewPath,
     this.audioUrl,
   });
 
@@ -134,11 +136,15 @@ class _CreateDeckScreenState extends State<CreateDeckScreen> {
       );
 
       if (result != null && result.files.single.path != null) {
-        // Hiển thị trạng thái đang tải lên
-        setState(() => cell.imageUrl = 'uploading');
+        final String localPath = result.files.single.path!;
+        // Hiển thị ảnh cục bộ ngay lập tức
+        setState(() {
+          cell.localPreviewPath = localPath;
+          cell.imageUrl = 'uploading';
+        });
 
         final String? uploadedUrl = await _cloudinaryService.uploadImage(
-          File(result.files.single.path!),
+          File(localPath),
         );
 
         if (mounted) {
@@ -281,8 +287,8 @@ class _CreateDeckScreenState extends State<CreateDeckScreen> {
           if (cell != null) {
             rowMap[header['id']!] = {
               'text': cell.controller.text,
-              'image_url': cell.imageUrl,
-              'audio_url': cell.audioUrl
+              'image_url': cell.imageUrl == 'uploading' ? null : cell.imageUrl,
+              'audio_url': cell.audioUrl == 'uploading' ? null : cell.audioUrl
             };
           }
         }
@@ -416,15 +422,29 @@ class _CreateDeckScreenState extends State<CreateDeckScreen> {
                       onTap: () => _pickImage(cell),
                       child: cell.imageUrl == 'uploading'
                           ? const SizedBox(
-                              width: 18,
-                              height: 18,
+                              width: 24,
+                              height: 24,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : Icon(
-                              cell.imageUrl == null ? Icons.image_outlined : Icons.image,
-                              size: 18,
-                              color: cell.imageUrl == null ? Colors.grey : AppColors.primary,
-                            ),
+                          : (cell.localPreviewPath != null
+                              ? ClipRRect(
+                                  borderRadius: BorderRadius.circular(4),
+                                  child: Image.file(
+                                    File(cell.localPreviewPath!),
+                                    width: 24,
+                                    height: 24,
+                                    fit: BoxFit.cover,
+                                  ),
+                                )
+                              : Icon(
+                                  cell.imageUrl == null
+                                      ? Icons.image_outlined
+                                      : Icons.image,
+                                  size: 20,
+                                  color: cell.imageUrl == null
+                                      ? Colors.grey
+                                      : AppColors.primary,
+                                )),
                     ),
                     const SizedBox(width: 12),
                     InkWell(

@@ -31,6 +31,10 @@ class DeckProvider with ChangeNotifier {
     baseUrl: ApiConstants.baseUrl,
     connectTimeout: const Duration(seconds: 10),
     receiveTimeout: const Duration(seconds: 10),
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    },
   ));
 
   List<Deck> get publicDecks => _publicDecks;
@@ -98,7 +102,11 @@ class DeckProvider with ChangeNotifier {
         _myDecks = data.map((item) => Deck.fromJson(item)).toList();
       }
     } catch (e) {
-      debugPrint('Error fetching my decks: $e');
+      if (e is DioException) {
+        debugPrint('Error fetching my decks: ${e.response?.statusCode} - ${e.response?.data}');
+      } else {
+        debugPrint('Error fetching my decks: $e');
+      }
     } finally {
       _isLoading = false;
       _isFetchingMy = false;
