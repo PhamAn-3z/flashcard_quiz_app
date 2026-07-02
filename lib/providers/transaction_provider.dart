@@ -69,7 +69,11 @@ class TransactionProvider with ChangeNotifier {
       final response = await _dio.get('/memberships');
       if (response.statusCode == 200) {
         final List<dynamic> data = response.data['data'] ?? [];
-        _plans = data.map((json) => MembershipPlan.fromJson(json)).toList();
+        // Lọc chỉ lấy các gói đang hoạt động (isActive == true)
+        _plans = data
+            .map((json) => MembershipPlan.fromJson(json))
+            .where((plan) => plan.isActive)
+            .toList();
       }
     } catch (e) {
       _error = "Không thể tải danh sách gói hội viên.";
@@ -77,6 +81,33 @@ class TransactionProvider with ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     }
+  }
+
+  // Lấy chi tiết một gói (Ví dụ dùng để kiểm tra thông tin trước khi thanh toán)
+  Future<MembershipPlan?> fetchMembershipDetail(int id) async {
+    try {
+      final response = await _dio.get('/memberships/$id');
+      if (response.statusCode == 200) {
+        return MembershipPlan.fromJson(response.data['data']);
+      }
+    } catch (e) {
+      _error = "Không thể tải chi tiết gói hội viên.";
+    }
+    return null;
+  }
+
+  // Quản lý gói (Dành cho Admin - ví dụ)
+  Future<bool> toggleMembershipStatus(int id) async {
+    try {
+      final response = await _dio.patch('/memberships/$id/toggle');
+      if (response.statusCode == 200) {
+        await fetchMembershipPlans(); // Tải lại danh sách
+        return true;
+      }
+    } catch (e) {
+      _error = "Lỗi khi thay đổi trạng thái gói.";
+    }
+    return false;
   }
 
   // Lấy lịch sử giao dịch (Receipts) từ BE theo userId

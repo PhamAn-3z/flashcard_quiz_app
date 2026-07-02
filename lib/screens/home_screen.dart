@@ -10,8 +10,22 @@ import 'translation_screen.dart';
 import 'deck_list_screen.dart';
 import 'flashcard_learning_screen.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  int _currentDeckPage = 0;
+  final PageController _pageController = PageController();
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -38,9 +52,9 @@ class HomeScreen extends StatelessWidget {
                       const SizedBox(height: 12),
                       _buildDailyContentGrid(),
                       const SizedBox(height: 32),
-                      _buildSectionHeader('BỘ THẺ ĐỀ XUẤT'),
-                      const SizedBox(height: 12),
-                      _buildHorizontalDecks(context),
+                      _buildSectionHeader('Bộ đề đề xuất', showAll: true),
+                      const SizedBox(height: 16),
+                      _buildRecommendedDecks(context),
                       const SizedBox(height: 40),
                     ],
                   ),
@@ -49,6 +63,167 @@ class HomeScreen extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(String title, {bool showAll = false}) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          title, 
+          style: const TextStyle(
+            fontSize: 18, 
+            fontWeight: FontWeight.bold, 
+            color: AppColors.textPrimary
+          )
+        ),
+        if (showAll)
+          const Text('Tất cả', style: TextStyle(fontSize: 12, color: AppColors.primary, fontWeight: FontWeight.bold)),
+      ],
+    );
+  }
+
+  Widget _buildRecommendedDecks(BuildContext context) {
+    return Consumer<DeckProvider>(
+      builder: (context, deckProvider, _) {
+        final list = deckProvider.publicDecks;
+        if (deckProvider.isLoading && list.isEmpty) {
+          return const SizedBox(height: 180, child: Center(child: CircularProgressIndicator()));
+        }
+        
+        if (list.isEmpty) {
+          return const Center(child: Text('Không có bộ thẻ công khai.', style: TextStyle(color: Colors.grey, fontSize: 12)));
+        }
+
+        return Column(
+          children: [
+            SizedBox(
+              height: 180,
+              child: PageView.builder(
+                controller: _pageController,
+                onPageChanged: (index) {
+                  setState(() {
+                    _currentDeckPage = index;
+                  });
+                },
+                itemCount: list.length,
+                itemBuilder: (context, index) {
+                  final deck = list[index];
+                  return _buildDeckCard(context, deck);
+                },
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(
+                list.length > 5 ? 5 : list.length,
+                (index) => Container(
+                  width: 8,
+                  height: 8,
+                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: _currentDeckPage % (list.length > 5 ? 5 : list.length) == index 
+                      ? Colors.black 
+                      : Colors.black.withOpacity(0.2),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildDeckCard(BuildContext context, dynamic deck) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(context, MaterialPageRoute(builder: (_) => FlashcardLearningScreen(deckId: deck.id, deckName: deck.title)));
+      },
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 4),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(32),
+          border: Border.all(color: Colors.black.withOpacity(0.08)),
+        ),
+        child: Stack(
+          children: [
+            // Icon top left
+            Positioned(
+              top: 0,
+              left: 0,
+              child: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.style_rounded, color: Color(0xFF64748B), size: 24),
+              ),
+            ),
+            // Stats top right
+            Positioned(
+              top: 0,
+              right: 0,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text('88 lượt xem', style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+                  Text('30 người học hôm nay', style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+                ],
+              ),
+            ),
+            // Deck Name and Info
+            Positioned(
+              left: 0,
+              bottom: 0,
+              right: 0,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          deck.title,
+                          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: AppColors.textPrimary),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          '${deck.totalCards} thẻ • Tác giả: ${deck.author?.username ?? "Ẩn danh"}',
+                          style: TextStyle(fontSize: 13, color: Colors.grey.shade700, fontWeight: FontWeight.w500),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Button
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.black),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Text(
+                      'Lưu bộ đề',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -268,87 +443,4 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildSectionHeader(String title) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFF64748B), letterSpacing: 1)),
-        const Text('Tất cả', style: TextStyle(fontSize: 12, color: AppColors.primary, fontWeight: FontWeight.bold)),
-      ],
-    );
-  }
-
-  Widget _buildHorizontalDecks(BuildContext context) {
-    return Consumer<DeckProvider>(
-      builder: (context, deckProvider, _) {
-        final list = deckProvider.publicDecks;
-        if (deckProvider.isLoading && list.isEmpty) return const Center(child: CircularProgressIndicator());
-        
-        if (list.isEmpty) {
-          return const Center(child: Text('Không có bộ thẻ công khai.', style: TextStyle(color: Colors.grey, fontSize: 12)));
-        }
-
-        return SizedBox(
-          height: 140,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            clipBehavior: Clip.none,
-            itemCount: list.length,
-            itemBuilder: (context, index) {
-              final deck = list[index];
-              return GestureDetector(
-                onTap: () {
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => FlashcardLearningScreen(deckId: deck.id, deckName: deck.title)));
-                },
-                child: Container(
-                  width: 140,
-                  margin: const EdgeInsets.only(right: 12),
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(Icons.folder_rounded, color: Colors.blue.withOpacity(0.5), size: 30),
-                      const Spacer(),
-                      Text(deck.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14), maxLines: 1),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          _buildMiniDot(Colors.blue, deck.ankiStats.newCount),
-                          const SizedBox(width: 4),
-                          _buildMiniDot(Colors.red, deck.ankiStats.learningCount),
-                          const SizedBox(width: 4),
-                          _buildMiniDot(Colors.green, deck.ankiStats.dueCount),
-                          if (deck.totalCards == 0) 
-                             Text('0 thẻ', style: TextStyle(color: Colors.grey, fontSize: 10)),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildMiniDot(Color color, int count) {
-    if (count == 0) return const SizedBox.shrink();
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Text(
-        '$count',
-        style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold),
-      ),
-    );
-  }
 }
