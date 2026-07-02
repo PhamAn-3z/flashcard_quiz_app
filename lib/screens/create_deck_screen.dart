@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:image_picker/image_picker.dart';
+import 'image_crop_screen.dart';
 import 'package:record/record.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -129,47 +131,73 @@ class _CreateDeckScreenState extends State<CreateDeckScreen> {
   // --- LOGIC MEDIA ---
 
   Future<void> _pickImage(CellData cell) async {
+    final ImagePicker picker = ImagePicker();
+
     try {
-      FilePickerResult? result = await FilePicker.pickFiles(
-        type: FileType.image,
-        allowMultiple: false,
-      );
+      // 1. Chọn ảnh từ Gallery
+      final XFile? pickedFile =
+          await picker.pickImage(source: ImageSource.gallery);
 
-      if (result != null && result.files.single.path != null) {
-        final String localPath = result.files.single.path!;
-        // Hiển thị ảnh cục bộ ngay lập tức
-        setState(() {
-          cell.localPreviewPath = localPath;
-          cell.imageUrl = 'uploading';
-        });
+      if (pickedFile != null) {
+        final Uint8List imageBytes = await pickedFile.readAsBytes();
 
-        final String? uploadedUrl = await _cloudinaryService.uploadImage(
-          File(localPath),
+        // 2. Chuyển sang màn hình cắt ảnh (Dart pure)
+        if (!mounted) return;
+        final Uint8List? croppedImage = await Navigator.push<Uint8List>(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ImageCropScreen(image: imageBytes),
+          ),
         );
 
-        if (mounted) {
+        if (croppedImage != null) {
+          // Lưu vào file tạm để hiển thị preview cục bộ (nếu cần) và upload
+          final tempDir = await getTemporaryDirectory();
+          final String localPath =
+              '${tempDir.path}/cropped_${DateTime.now().millisecondsSinceEpoch}.jpg';
+          final File file = File(localPath);
+          await file.writeAsBytes(croppedImage);
+
           setState(() {
-            cell.imageUrl = uploadedUrl;
+            cell.localPreviewPath = localPath;
+            cell.imageUrl = 'uploading';
           });
 
-          if (uploadedUrl != null) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Tải ảnh lên thành công!')),
-            );
-          } else {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Tải ảnh lên thất bại. Kiểm tra cấu hình .env'),
-                backgroundColor: Colors.redAccent,
-              ),
-            );
+          // 3. Tải ảnh đã cắt lên Cloudinary
+          final String? uploadedUrl = await _cloudinaryService.uploadImage(file);
+
+          if (mounted) {
+            setState(() {
+              cell.imageUrl = uploadedUrl;
+            });
           }
         }
       }
     } catch (e) {
-      debugPrint('Error picking image: $e');
-      setState(() => cell.imageUrl = null);
+      debugPrint('Error picking/cropping image: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Lỗi khi xử lý hình ảnh')),
+        );
+      }
     }
+  }
+
+  void _removeImage(CellData cell) {
+    setState(() {
+      cell.imageUrl = null;
+      cell.localPreviewPath = null;
+    });
+  }
+
+  void _removeAudio(CellData cell) {
+    setState(() {
+      cell.audioUrl = null;
+      if (_playingUrl == cell.audioUrl) {
+        _audioPlayer.stop();
+        _playingUrl = null;
+      }
+    });
   }
 
   Future<void> _startRecording(CellData cell) async {
@@ -200,14 +228,21 @@ class _CreateDeckScreenState extends State<CreateDeckScreen> {
         title: const Text('Đang thu âm...', style: TextStyle(fontSize: 16)),
         content: const Column(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.mic, size: 50, color: Colors.redAccent), SizedBox(height: 10), Text('Hãy phát âm rõ ràng')]),
         actions: [
-          TextButton(onPressed: () async { await _audioRecorder.stop(); if (mounted) Navigator.pop(ctx); }, child: const Text('Hủy')),
+          TextButton(
+            onPressed: () async {
+              await _audioRecorder.stop();
+              if (ctx.mounted) Navigator.pop(ctx);
+            },
+            child: const Text('Hủy'),
+          ),
           ElevatedButton(
             onPressed: () async {
               final pathResult = await _audioRecorder.stop();
-              if (mounted) Navigator.pop(ctx);
+              if (ctx.mounted) Navigator.pop(ctx);
               if (pathResult != null) _processRecordedFile(cell, pathResult);
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, foregroundColor: Colors.white),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.redAccent, foregroundColor: Colors.white),
             child: const Text('Dừng & Tải lên'),
           ),
         ],
@@ -232,11 +267,15 @@ class _CreateDeckScreenState extends State<CreateDeckScreen> {
       
       setState(() => cell.audioUrl = 'uploading');
       
+      if (!mounted) return;
       final uploadedUrl = await context.read<DeckProvider>().uploadAudio(fileName, bytes);
       
       if (mounted) {
         setState(() => cell.audioUrl = uploadedUrl);
-        if (uploadedUrl != null) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Tải âm thanh thành công!')));
+        if (uploadedUrl != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Tải âm thanh thành công!')));
+        }
       }
     } catch (e) {
       debugPrint('Process audio error: $e');
@@ -410,69 +449,127 @@ class _CreateDeckScreenState extends State<CreateDeckScreen> {
                 width: cellWidth,
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade200), borderRadius: BorderRadius.circular(8)),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  TextField(
-                    controller: cell.controller, 
-                    style: const TextStyle(fontSize: 15), 
-                    decoration: InputDecoration(isDense: true, hintText: header['label'], contentPadding: const EdgeInsets.symmetric(vertical: 8), border: InputBorder.none)
-                  ),
-                  const Divider(height: 8, thickness: 0.5),
-                  Row(children: [
-                    InkWell(
-                      onTap: () => _pickImage(cell),
-                      child: cell.imageUrl == 'uploading'
-                          ? const SizedBox(
-                              width: 24,
-                              height: 24,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : (cell.localPreviewPath != null
-                              ? ClipRRect(
-                                  borderRadius: BorderRadius.circular(4),
-                                  child: Image.file(
-                                    File(cell.localPreviewPath!),
-                                    width: 24,
-                                    height: 24,
-                                    fit: BoxFit.cover,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextField(
+                      controller: cell.controller,
+                      style: const TextStyle(fontSize: 15),
+                      decoration: InputDecoration(
+                        isDense: true,
+                        hintText: header['label'],
+                        contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                        border: InputBorder.none,
+                      ),
+                    ),
+                    const Divider(height: 8, thickness: 0.5),
+
+                    // --- KHU VỰC HIỂN THỊ ẢNH XEM TRƯỚC (NGAY NGẮN BÊN DƯỚI) ---
+                    if (cell.imageUrl != null || cell.localPreviewPath != null)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        child: Stack(
+                          children: [
+                            AspectRatio(
+                              aspectRatio: 4 / 3,
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.shade100,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: Colors.grey.shade200),
+                                ),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: cell.imageUrl == 'uploading'
+                                      ? const Center(
+                                          child: SizedBox(
+                                            width: 20,
+                                            height: 20,
+                                            child: CircularProgressIndicator(
+                                                strokeWidth: 2),
+                                          ),
+                                        )
+                                      : (cell.localPreviewPath != null
+                                          ? Image.file(
+                                              File(cell.localPreviewPath!),
+                                              fit: BoxFit.cover,
+                                            )
+                                          : Image.network(
+                                              cell.imageUrl!,
+                                              fit: BoxFit.cover,
+                                              errorBuilder: (c, e, s) =>
+                                                  const Icon(Icons.broken_image,
+                                                      color: Colors.grey),
+                                            )),
+                                ),
+                              ),
+                            ),
+                            Positioned(
+                              top: 4,
+                              right: 4,
+                              child: InkWell(
+                                onTap: () => _removeImage(cell),
+                                child: Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withValues(alpha: 0.5),
+                                    shape: BoxShape.circle,
                                   ),
-                                )
-                              : Icon(
-                                  cell.imageUrl == null
-                                      ? Icons.image_outlined
-                                      : Icons.image,
-                                  size: 20,
-                                  color: cell.imageUrl == null
-                                      ? Colors.grey
-                                      : AppColors.primary,
-                                )),
-                    ),
-                    const SizedBox(width: 12),
-                    InkWell(
-                      onTap: () => _startRecording(cell),
-                      child: cell.audioUrl == 'uploading'
-                          ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                          : Icon(cell.audioUrl == null ? Icons.mic_none_rounded : Icons.mic, size: 18, color: cell.audioUrl == null ? Colors.grey : AppColors.success),
-                    ),
-                    if (cell.audioUrl != null &&
-                        cell.audioUrl != 'uploading') ...[
-                      const SizedBox(width: 8),
-                      InkWell(
-                        onTap: () => _playAudio(cell.audioUrl!),
-                        child: Icon(
-                          _playingUrl == cell.audioUrl
-                              ? Icons.stop_circle_rounded
-                              : Icons.play_circle_fill_rounded,
-                          size: 20,
-                          color: _playingUrl == cell.audioUrl
-                              ? Colors.redAccent
-                              : AppColors.primary,
+                                  child: const Icon(Icons.close,
+                                      size: 14, color: Colors.white),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ],
-                    const Spacer(),
-                    Text(header['label'] ?? '', style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.grey)),
-                  ]),
-                ]),
+
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        // Nút thêm ảnh mini
+                        _buildMiniActionButton(
+                          icon: Icons.add_photo_alternate_outlined,
+                          onTap: () => _pickImage(cell),
+                          isActive: cell.imageUrl != null,
+                        ),
+                        const SizedBox(width: 8),
+                        // Nút ghi âm mini
+                        _buildMiniActionButton(
+                          icon: Icons.mic_none_rounded,
+                          onTap: () => _startRecording(cell),
+                          isActive: cell.audioUrl != null,
+                          isLoading: cell.audioUrl == 'uploading',
+                          onLongPress: cell.audioUrl != null ? () => _removeAudio(cell) : null,
+                        ),
+                        if (cell.audioUrl != null &&
+                            cell.audioUrl != 'uploading') ...[
+                          const SizedBox(width: 6),
+                          InkWell(
+                            onTap: () => _playAudio(cell.audioUrl!),
+                            child: Icon(
+                              _playingUrl == cell.audioUrl
+                                  ? Icons.stop_circle_rounded
+                                  : Icons.play_circle_fill_rounded,
+                              size: 22,
+                              color: _playingUrl == cell.audioUrl
+                                  ? Colors.redAccent
+                                  : AppColors.primary,
+                            ),
+                          ),
+                        ],
+                        const Spacer(),
+                        Text(
+                          header['label'] ?? '',
+                          style: const TextStyle(
+                              fontSize: 8,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.grey),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             );
           }).toList()),
@@ -480,6 +577,56 @@ class _CreateDeckScreenState extends State<CreateDeckScreen> {
       ]),
     );
   }
+
+  Widget _buildMiniActionButton({
+    required IconData icon,
+    required VoidCallback onTap,
+    VoidCallback? onLongPress,
+    bool isActive = false,
+    bool isLoading = false,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      onLongPress: onLongPress,
+      child: Container(
+        padding: const EdgeInsets.all(6),
+        decoration: BoxDecoration(
+          color: isActive
+              ? (icon == Icons.mic_none_rounded
+                  ? AppColors.success.withOpacity(0.1)
+                  : AppColors.primary.withOpacity(0.1))
+              : Colors.grey.shade50,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(
+            color: isActive
+                ? (icon == Icons.mic_none_rounded
+                    ? AppColors.success
+                    : AppColors.primary)
+                : Colors.grey.shade200,
+          ),
+        ),
+        child: isLoading
+            ? const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : Icon(
+                icon,
+                size: 16,
+                color: isActive
+                    ? (icon == Icons.mic_none_rounded
+                        ? AppColors.success
+                        : AppColors.primary)
+                    : Colors.grey,
+              ),
+      ),
+    );
+  }
+
+  // Thay thế _buildCellMediaItem cũ (nếu không dùng nữa) bằng logic mới gọn hơn ở trên
+  // hoặc xóa nếu nó không còn được gọi ở đâu.
+  // ... rest of the code ...
 
   Widget _buildDeckInfo() {
     final decks = context.watch<DeckProvider>().decks;
