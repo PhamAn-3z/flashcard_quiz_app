@@ -54,7 +54,7 @@ class DeckProvider with ChangeNotifier {
       _dio.options.headers.remove('Authorization');
     }
 
-    Future.microtask(() {
+    Future.delayed(Duration.zero, () {
       if (tokenChanged) {
         if (_token == null) {
           _myDecks = [];
@@ -178,7 +178,7 @@ class DeckProvider with ChangeNotifier {
 
   Future<DeckStudyData?> fetchDeckStudyData(int deckId) async {
     _isLoading = true;
-    notifyListeners();
+    Future.delayed(Duration.zero, () => notifyListeners());
     try {
       final response = await _dio.get('/decks/$deckId/study');
 
@@ -214,7 +214,7 @@ class DeckProvider with ChangeNotifier {
     required List<Map<String, dynamic>> rows,
   }) async {
     _isLoading = true;
-    notifyListeners();
+    Future.delayed(Duration.zero, () => notifyListeners());
     try {
       final response = await _dio.post(
         '/decks/bulk-import',

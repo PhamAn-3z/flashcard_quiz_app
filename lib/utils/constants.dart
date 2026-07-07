@@ -20,6 +20,13 @@ class ApiConstants {
   
   // Tự động xác định Base URL dựa trên môi trường chạy
   static String get baseUrl {
+    // Dán link từ SSH TUNNEL vào đây (Ví dụ: https://4f2d59f555825a.lhr.life)
+    const String tunnelUrl = "https://866a92414812e8.lhr.life";
+    
+    if (tunnelUrl.isNotEmpty && (tunnelUrl.contains(".lhr.life") || tunnelUrl.contains("ngrok"))) {
+      return '$tunnelUrl/api/v1';
+    }
+
     if (kIsWeb) {
       return 'http://localhost:8080/api/v1';
     }
