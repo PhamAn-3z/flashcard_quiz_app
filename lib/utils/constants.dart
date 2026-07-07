@@ -20,31 +20,36 @@ class ApiConstants {
   
   // Tự động xác định Base URL dựa trên môi trường chạy
   static String get baseUrl {
-    // 1. LINK TUNNEL (Dành cho điện thoại thật khác mạng WiFi hoặc dùng 4G)
-    // Dán link từ SSH TUNNEL/ngrok vào đây
-    const String tunnelUrl = "https://866a92414812e8.lhr.life";
-    
-    // 2. IP NỘI BỘ (Dành cho điện thoại thật dùng CHUNG WiFi với máy tính)
-    // Hãy thay 192.168.x.x bằng IP máy tính của bạn (Gõ 'ipconfig' trong CMD để xem)
+    // 1. Cấu hình IP (Hãy thay bằng IP máy tính của bạn khi dùng điện thoại thật chung WiFi)
     const String localIp = "192.168.1.10"; 
+    
+    // 2. Cấu hình Tunnel (Chỉ dán link vào đây khi dùng điện thoại thật khác mạng/4G)
+    const String tunnelUrl = ""; 
 
+    // ƯU TIÊN 1: Nếu là Máy ảo Android (Emulator) -> Luôn dùng 10.0.2.2 để ổn định nhất
+    // Lưu ý: kIsWeb phải check trước Platform
+    if (!kIsWeb) {
+      try {
+        // Một số môi trường không hỗ trợ Platform.isAndroid nên cần bọc try-catch
+        if (Platform.isAndroid) {
+          // Bạn có thể đổi dòng dưới thành true nếu muốn dùng Tunnel trên máy ảo
+          bool useTunnelOnEmulator = false; 
+          if (!useTunnelOnEmulator) {
+             return 'http://10.0.2.2:8080/api/v1';
+          }
+        }
+      } catch (e) {}
+    }
+
+    // ƯU TIÊN 2: Nếu có Tunnel Url -> Dùng cho điện thoại thật
     if (tunnelUrl.isNotEmpty && (tunnelUrl.contains(".lhr.life") || tunnelUrl.contains("ngrok"))) {
       return '$tunnelUrl/api/v1';
     }
 
     if (kIsWeb) return 'http://localhost:8080/api/v1';
 
-    try {
-      if (Platform.isAndroid) {
-        // MÁY ẢO: Tự động dùng 10.0.2.2 (vui lòng bỏ comment dòng dưới nếu dùng máy ảo)
-        // return 'http://10.0.2.2:8080/api/v1'; 
-
-        // ĐIỆN THOẠI THẬT CHUNG WIFI: Dùng địa chỉ IP máy tính
-        return 'http://$localIp:8080/api/v1';
-      }
-    } catch (e) {}
-
-    return 'http://localhost:8080/api/v1';
+    // ƯU TIÊN 3: Dùng IP nội bộ cho điện thoại thật chung WiFi
+    return 'http://$localIp:8080/api/v1';
   }
 
   // Chuyển sang dạng getter để luôn lấy giá trị baseUrl mới nhất
