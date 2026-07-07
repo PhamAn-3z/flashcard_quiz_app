@@ -20,24 +20,30 @@ class ApiConstants {
   
   // Tự động xác định Base URL dựa trên môi trường chạy
   static String get baseUrl {
-    // Dán link từ SSH TUNNEL vào đây (Ví dụ: https://4f2d59f555825a.lhr.life)
+    // 1. LINK TUNNEL (Dành cho điện thoại thật khác mạng WiFi hoặc dùng 4G)
+    // Dán link từ SSH TUNNEL/ngrok vào đây
     const String tunnelUrl = "https://866a92414812e8.lhr.life";
     
+    // 2. IP NỘI BỘ (Dành cho điện thoại thật dùng CHUNG WiFi với máy tính)
+    // Hãy thay 192.168.x.x bằng IP máy tính của bạn (Gõ 'ipconfig' trong CMD để xem)
+    const String localIp = "192.168.1.10"; 
+
     if (tunnelUrl.isNotEmpty && (tunnelUrl.contains(".lhr.life") || tunnelUrl.contains("ngrok"))) {
       return '$tunnelUrl/api/v1';
     }
 
-    if (kIsWeb) {
-      return 'http://localhost:8080/api/v1';
-    }
-    // Nếu là Android Emulator thì dùng 10.0.2.2, các trường hợp khác (iOS/Desktop) dùng localhost
+    if (kIsWeb) return 'http://localhost:8080/api/v1';
+
     try {
       if (Platform.isAndroid) {
-        return 'http://10.0.2.2:8080/api/v1';
+        // MÁY ẢO: Tự động dùng 10.0.2.2 (vui lòng bỏ comment dòng dưới nếu dùng máy ảo)
+        // return 'http://10.0.2.2:8080/api/v1'; 
+
+        // ĐIỆN THOẠI THẬT CHUNG WIFI: Dùng địa chỉ IP máy tính
+        return 'http://$localIp:8080/api/v1';
       }
-    } catch (e) {
-      // Phòng trường hợp Platform throw lỗi trên một số môi trường lạ
-    }
+    } catch (e) {}
+
     return 'http://localhost:8080/api/v1';
   }
 
