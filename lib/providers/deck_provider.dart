@@ -256,7 +256,38 @@ class DeckProvider with ChangeNotifier {
   }
 
   Future<void> updateStudyProgress(int positionId, String rating) async {
-    debugPrint('Study progress locally updated for position: $positionId with rating: $rating');
+    // Không gọi API ở đây nữa để tránh quá tải mạng và lag
+    debugPrint('Card $positionId rated $rating - stored in local session');
+  }
+
+  Future<Map<String, dynamic>?> endStudySession({
+    required int deckId,
+    required int cardsLearned,
+    required int cardsReviewed,
+    required int durationSeconds,
+    required List<Map<String, dynamic>> cardRatings,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '/study-logs/session-end',
+        data: {
+          "deck_id": deckId,
+          "cards_learned": cardsLearned,
+          "cards_reviewed": cardsReviewed,
+          "duration_seconds": durationSeconds,
+          "card_ratings": cardRatings,
+        },
+      );
+
+      if (response.statusCode == 200 && response.data['success'] == true) {
+        await fetchMyDecks(); // Tải lại danh sách để cập nhật % hoàn thành trên trang chủ
+        return response.data['data'];
+      }
+      return null;
+    } catch (e) {
+      debugPrint('Error ending study session: $e');
+      return null;
+    }
   }
 
   /// Tải file audio lên Cloudflare R2 thông qua Pre-signed URL từ Backend

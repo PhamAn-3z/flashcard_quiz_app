@@ -205,7 +205,7 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
           Expanded(
             child: ListView(
               children: [
-                _buildHeader(),
+                _buildHeader(context),
                 const Divider(color: Colors.black12, height: 32, thickness: 8),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -325,7 +325,24 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
     return Text(text, style: const TextStyle(color: Colors.black87, fontSize: 14));
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(BuildContext context) {
+    // Lấy dữ liệu mới nhất từ DeckProvider để cập nhật stats sau khi học
+    final deckProvider = context.watch<DeckProvider>();
+    final allDecks = [...deckProvider.myDecks, ...deckProvider.publicDecks];
+    
+    // Tìm bộ đề hiện tại trong danh sách của provider
+    final matches = allDecks.where((d) => d.id == widget.deckId);
+    final currentDeck = matches.isNotEmpty ? matches.first : null;
+
+    // Ưu tiên lấy stats từ provider, nếu không có thì dùng stats ban đầu
+    final displayStats = currentDeck != null 
+      ? {
+          'newCount': currentDeck.ankiStats.newCount,
+          'learningCount': currentDeck.ankiStats.learningCount,
+          'dueCount': currentDeck.ankiStats.dueCount,
+        }
+      : widget.ankiStats;
+
     return Container(
       padding: const EdgeInsets.all(24),
       color: Colors.white,
@@ -340,11 +357,11 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildStatItem('New', widget.ankiStats['newCount'] ?? 0, Colors.blue),
+                  _buildStatItem('New', displayStats['newCount'] ?? 0, Colors.blue),
                   const SizedBox(height: 8),
-                  _buildStatItem('Learning', widget.ankiStats['learningCount'] ?? 0, Colors.red),
+                  _buildStatItem('Learning', displayStats['learningCount'] ?? 0, Colors.red),
                   const SizedBox(height: 8),
-                  _buildStatItem('To Review', widget.ankiStats['dueCount'] ?? 0, Colors.green),
+                  _buildStatItem('To Review', displayStats['dueCount'] ?? 0, Colors.green),
                 ],
               ),
               ElevatedButton(
