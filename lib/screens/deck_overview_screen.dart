@@ -183,6 +183,45 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
     _commentFocusNode.requestFocus();
   }
 
+  Future<void> _deleteComment(int commentId) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Xóa bình luận?'),
+        content: const Text('Bạn có chắc chắn muốn xóa bình luận này không? Hành động này không thể hoàn tác.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('HỦY')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true), 
+            child: const Text('XÓA', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      final success = await context.read<DeckProvider>().deleteComment(commentId);
+      if (success) {
+        setState(() {
+          // Xóa comment khỏi danh sách phẳng (và các replies của nó nếu có trong mảng phẳng)
+          _flatCommentsList.removeWhere((c) => c.id == commentId || c.parentId == commentId);
+          _commentTree = _buildFlattenedTree(_flatCommentsList);
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Đã xóa bình luận'))
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Không thể xóa bình luận. Vui lòng thử lại!'))
+          );
+        }
+      }
+    }
+  }
+
   void _cancelReply() {
     setState(() {
       replyingToCommentId = null;
@@ -192,6 +231,15 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final deckProvider = context.watch<DeckProvider>();
+    final currentUser = context.read<AuthProvider>().user?.username;
+
+    // Tìm thông tin bộ đề hiện tại để biết ai là chủ (Deck Owner)
+    final allDecks = [...deckProvider.myDecks, ...deckProvider.publicDecks];
+    final matches = allDecks.where((d) => d.id == widget.deckId);
+    final currentDeck = matches.isNotEmpty ? matches.first : null;
+    final deckOwner = currentDeck?.author?.username;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF1F5F9),
       appBar: AppBar(
@@ -223,7 +271,7 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
                     child: Text('Chưa có thảo luận nào.', style: TextStyle(color: Colors.black38)),
                   ))
                 else
-                  ..._commentTree.map((c) => _buildCommentNode(c)),
+                  ..._commentTree.map((c) => _buildCommentNode(c, deckOwner: deckOwner, currentUser: currentUser)),
                 const SizedBox(height: 100),
               ],
             ),
@@ -235,8 +283,12 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
   }
 
   // 2. Widget hiển thị comment lồng nhau (Recursion - Max 2 levels)
-  Widget _buildCommentNode(Comment comment, {int depth = 0}) {
+  Widget _buildCommentNode(Comment comment, {int depth = 0, String? deckOwner, String? currentUser}) {
     double leftPadding = depth == 0 ? 16.0 : 48.0; 
+
+    // Quyền xóa: Là tác giả bình luận HOẶC là chủ bộ đề
+    bool canDelete = (currentUser != null) && 
+                     (comment.username == currentUser || deckOwner == currentUser);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -257,8 +309,33 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(comment.username, 
-                      style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.bold, fontSize: 13)),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(comment.username, 
+                          style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.bold, fontSize: 13)),
+                        if (canDelete)
+                          PopupMenuButton<String>(
+                            padding: EdgeInsets.zero,
+                            icon: const Icon(Icons.more_vert, size: 18, color: Colors.grey),
+                            onSelected: (val) {
+                              if (val == 'delete') _deleteComment(comment.id);
+                            },
+                            itemBuilder: (ctx) => [
+                              const PopupMenuItem(
+                                value: 'delete',
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.delete_outline, size: 20, color: Colors.redAccent),
+                                    SizedBox(width: 8),
+                                    Text('Xóa', style: TextStyle(color: Colors.redAccent)),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                      ],
+                    ),
                     const SizedBox(height: 4),
                     // Hiển thị nội dung (đã được chèn @mention nếu là tầng sâu)
                     _buildCommentContent(comment.content),
@@ -299,7 +376,7 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
         ),
         // Render các replies (Ép phẳng vào Tầng 2)
         if (depth == 0 && comment.replies.isNotEmpty)
-          ...comment.replies.map((r) => _buildCommentNode(r, depth: 1)),
+          ...comment.replies.map((r) => _buildCommentNode(r, depth: 1, deckOwner: deckOwner, currentUser: currentUser)),
       ],
     );
   }
@@ -326,22 +403,34 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
   }
 
   Widget _buildHeader(BuildContext context) {
-    // Lấy dữ liệu mới nhất từ DeckProvider để cập nhật stats sau khi học
     final deckProvider = context.watch<DeckProvider>();
-    final allDecks = [...deckProvider.myDecks, ...deckProvider.publicDecks];
     
-    // Tìm bộ đề hiện tại trong danh sách của provider
-    final matches = allDecks.where((d) => d.id == widget.deckId);
-    final currentDeck = matches.isNotEmpty ? matches.first : null;
-
-    // Ưu tiên lấy stats từ provider, nếu không có thì dùng stats ban đầu
-    final displayStats = currentDeck != null 
-      ? {
-          'newCount': currentDeck.ankiStats.newCount,
-          'learningCount': currentDeck.ankiStats.learningCount,
-          'dueCount': currentDeck.ankiStats.dueCount,
+    // Hàm tìm kiếm deck trong cấu trúc cây (Recursive search)
+    dynamic findDeckInTree(List<dynamic> decks, int id) {
+      for (var d in decks) {
+        if (d.id == id) return d;
+        if (d.subDecks.isNotEmpty) {
+          final found = findDeckInTree(d.subDecks, id);
+          if (found != null) return found;
         }
-      : widget.ankiStats;
+      }
+      return null;
+    }
+
+    // 1. Tìm trong My Decks (Cả sub-decks)
+    final currentDeck = findDeckInTree(deckProvider.myDecks, widget.deckId);
+
+    // 2. Quyết định hiển thị stats
+    Map<String, int> displayStats;
+    if (currentDeck != null) {
+      displayStats = {
+        'newCount': currentDeck.ankiStats.newCount,
+        'learningCount': currentDeck.ankiStats.learningCount,
+        'dueCount': currentDeck.ankiStats.dueCount,
+      };
+    } else {
+      displayStats = widget.ankiStats;
+    }
 
     return Container(
       padding: const EdgeInsets.all(24),
