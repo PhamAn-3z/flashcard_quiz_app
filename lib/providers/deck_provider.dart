@@ -21,10 +21,14 @@ class DeckStudyData {
 
 class DeckProvider with ChangeNotifier {
   List<Deck> _publicDecks = [];
+  List<Deck> _exploreDecks = [];
   List<Deck> _myDecks = [];
+  List<dynamic> _recentDecks = []; // Lưu lịch sử học tập
   bool _isLoading = false;
   bool _isFetchingPublic = false;
+  bool _isFetchingExplore = false;
   bool _isFetchingMy = false;
+  bool _isFetchingRecent = false;
   String? _token;
 
   final Dio _dio = Dio(BaseOptions(
@@ -37,8 +41,11 @@ class DeckProvider with ChangeNotifier {
     },
   ));
 
+  // Getters
   List<Deck> get publicDecks => _publicDecks;
+  List<Deck> get exploreDecks => _exploreDecks;
   List<Deck> get myDecks => _myDecks;
+  List<dynamic> get recentDecks => _recentDecks;
   List<Deck> get decks => _token != null ? _myDecks : _publicDecks;
   bool get isLoading => _isLoading;
 
@@ -60,12 +67,15 @@ class DeckProvider with ChangeNotifier {
           _myDecks = [];
           notifyListeners();
           fetchPublicDecks();
+          fetchExploreDecks(filter: 'not_in_library');
         } else {
           fetchMyDecks();
           fetchPublicDecks();
+          fetchExploreDecks(filter: 'not_in_library');
         }
       } else if (_publicDecks.isEmpty && !_isFetchingPublic) {
         fetchPublicDecks();
+        fetchExploreDecks(filter: 'not_in_library');
       }
     });
   }
@@ -84,6 +94,72 @@ class DeckProvider with ChangeNotifier {
       debugPrint('Error fetching public decks: $e');
     } finally {
       _isFetchingPublic = false;
+    }
+  }
+
+  Future<int> fetchExploreDecks({
+    String sortBy = 'views_today',
+    int limit = 10,
+    int page = 1,
+    String filter = 'not_in_library',
+    String? searchTerm,
+    bool append = false,
+  }) async {
+    if (_isFetchingExplore) return 0;
+    _isFetchingExplore = true;
+    
+    // Nếu không phải nối thêm dữ liệu thì hiện loading
+    if (!append) {
+      _isLoading = true;
+      notifyListeners();
+    }
+
+    int fetchedCount = 0;
+    try {
+      final response = await _dio.get('/decks/explore', queryParameters: {
+        'sortBy': sortBy,
+        'limit': limit,
+        'page': page,
+        'order': 'desc',
+        'filter': filter,
+        if (searchTerm != null && searchTerm.isNotEmpty) 'q': searchTerm,
+      });
+
+      if (response.statusCode == 200 && response.data['success'] == true) {
+        final List<dynamic> data = response.data['data'] ?? [];
+        final newDecks = data.map((item) => Deck.fromJson(item)).toList();
+        fetchedCount = newDecks.length;
+        
+        if (append) {
+          _exploreDecks.addAll(newDecks);
+        } else {
+          _exploreDecks = newDecks;
+        }
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('Error fetching explore decks: $e');
+    } finally {
+      _isFetchingExplore = false;
+      _isLoading = false;
+      notifyListeners();
+    }
+    return fetchedCount;
+  }
+
+  Future<void> fetchRecentDecks() async {
+    if (_isFetchingRecent) return;
+    _isFetchingRecent = true;
+    try {
+      final response = await _dio.get('/decks/recent', queryParameters: {'limit': 10});
+      if (response.statusCode == 200 && response.data['success'] == true) {
+        _recentDecks = response.data['data'] ?? [];
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('Error fetching recent decks: $e');
+    } finally {
+      _isFetchingRecent = false;
     }
   }
 
@@ -255,6 +331,59 @@ class DeckProvider with ChangeNotifier {
     }
   }
 
+  Future<bool> saveDeck(int deckId) async {
+    // Cập nhật local ngay lập tức (Optimistic Update)
+    _updateLocalDeckLibraryStatus(deckId, true);
+    
+    try {
+      final response = await _dio.post('/decks/$deckId/save');
+      if (response.statusCode == 200 && response.data['success'] == true) {
+        fetchMyDecks(); // Chỉ tải lại thư viện cá nhân trong background
+        return true;
+      }
+      _updateLocalDeckLibraryStatus(deckId, false); // Rollback nếu lỗi
+      return false;
+    } catch (e) {
+      _updateLocalDeckLibraryStatus(deckId, false); // Rollback nếu lỗi
+      debugPrint('Error saving deck: $e');
+      return false;
+    }
+  }
+
+  Future<bool> unsaveDeck(int deckId) async {
+    _updateLocalDeckLibraryStatus(deckId, false);
+    
+    try {
+      final response = await _dio.delete('/decks/$deckId/unsave');
+      if (response.statusCode == 200 && response.data['success'] == true) {
+        fetchMyDecks();
+        return true;
+      }
+      _updateLocalDeckLibraryStatus(deckId, true);
+      return false;
+    } catch (e) {
+      _updateLocalDeckLibraryStatus(deckId, true);
+      debugPrint('Error unsaving deck: $e');
+      return false;
+    }
+  }
+
+  void _updateLocalDeckLibraryStatus(int deckId, bool isInLibrary) {
+    // Cập nhật trong Explore list
+    final exploreIndex = _exploreDecks.indexWhere((d) => d.id == deckId);
+    if (exploreIndex != -1) {
+      _exploreDecks[exploreIndex] = _exploreDecks[exploreIndex].copyWith(isInLibrary: isInLibrary);
+    }
+    
+    // Cập nhật trong Public list (nếu có)
+    final publicIndex = _publicDecks.indexWhere((d) => d.id == deckId);
+    if (publicIndex != -1) {
+      _publicDecks[publicIndex] = _publicDecks[publicIndex].copyWith(isInLibrary: isInLibrary);
+    }
+    
+    notifyListeners();
+  }
+
   Future<void> updateStudyProgress(int positionId, String rating) async {
     // Không gọi API ở đây nữa để tránh quá tải mạng và lag
     debugPrint('Card $positionId rated $rating - stored in local session');
@@ -280,7 +409,11 @@ class DeckProvider with ChangeNotifier {
       );
 
       if (response.statusCode == 200 && response.data['success'] == true) {
-        await fetchMyDecks(); // Tải lại danh sách để cập nhật % hoàn thành trên trang chủ
+        // Tải lại cả danh sách cá nhân và khám phá để đồng bộ thông số
+        await Future.wait([
+          fetchMyDecks(),
+          fetchExploreDecks(),
+        ]);
         return response.data['data'];
       }
       return null;

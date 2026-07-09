@@ -24,6 +24,7 @@ class _FlashcardLearningScreenState extends State<FlashcardLearningScreen> {
   bool _isCardFlipped = false;
   bool _isLoading = true;
   bool _isFinished = false;
+  bool _isSaving = false; // Biến cờ ngăn chặn gọi API 2 lần
   Map<String, dynamic>? _summaryData;
   final List<Map<String, dynamic>> _sessionRatings = [];
   final Set<int> _answeredCardIds = {};
@@ -128,6 +129,9 @@ class _FlashcardLearningScreenState extends State<FlashcardLearningScreen> {
         _activeGroupIdForPopup = null;
       });
     } else {
+      if (_isSaving) return;
+      setState(() => _isSaving = true);
+
       final int duration = DateTime.now().difference(_startTime).inSeconds;
       
       // 4. Gọi API session-end với các thông số đã phân loại
@@ -152,11 +156,12 @@ class _FlashcardLearningScreenState extends State<FlashcardLearningScreen> {
   }
 
   Future<void> _handleEarlyExit() async {
-    if (_sessionRatings.isEmpty) {
+    if (_sessionRatings.isEmpty || _isSaving) {
       Navigator.pop(context);
       return;
     }
 
+    setState(() => _isSaving = true);
     final int duration = DateTime.now().difference(_startTime).inSeconds;
     // Gửi log những gì đã học được
     await context.read<DeckProvider>().endStudySession(
@@ -168,6 +173,9 @@ class _FlashcardLearningScreenState extends State<FlashcardLearningScreen> {
         );
     if (mounted) {
       context.read<AuthProvider>().refreshProfile();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Đã lưu tiến độ học tập!'), duration: Duration(seconds: 1)),
+      );
       Navigator.pop(context);
     }
   }
