@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "748787298900",
+    "project_id": "nihongo-499c1",
+    "storage_bucket": "nihongo-499c1.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:748787298900:android:2694ca43380397aed533c1",
+        "android_client_info": {
+          "package_name": "com.example.flashcard_quiz_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDQ1sy2m3uZzgyXYwbOKSNKnxWNHSGLIPM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
