@@ -6,7 +6,6 @@ import 'home_screen.dart';
 import 'profile_screen.dart';
 import 'deck_list_screen.dart';
 import 'quiz_list_screen.dart';
-import 'chat_list_screen.dart';
 
 class MainNavigation extends StatefulWidget {
   const MainNavigation({super.key});
@@ -32,8 +31,6 @@ class _MainNavigationState extends State<MainNavigation> {
     final List<Widget> screens = [
       const HomeScreen(),
       const DeckListScreen(),
-      const QuizListScreen(),
-      const ChatListScreen(),
       const ProfileScreen(),
     ];
 
@@ -69,16 +66,6 @@ class _MainNavigationState extends State<MainNavigation> {
             icon: Icon(Icons.style_outlined),
             activeIcon: Icon(Icons.style),
             label: 'Flashcard',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.quiz_outlined),
-            activeIcon: Icon(Icons.quiz),
-            label: 'Quiz',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.chat_bubble_outline_rounded),
-            activeIcon: Icon(Icons.chat_bubble_rounded),
-            label: 'Tin nhắn',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person_outline),

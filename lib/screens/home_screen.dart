@@ -451,7 +451,6 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
         _buildMenuIcon(Icons.style_rounded, 'Flashcard', Colors.blue, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const DeckListScreen()))),
         _buildMenuIcon(Icons.translate_rounded, 'Dịch', Colors.green, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TranslationScreen()))),
-        _buildMenuIcon(Icons.psychology_rounded, 'Quiz', Colors.red, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const QuizListScreen()))),
       ]),
     );
   }
