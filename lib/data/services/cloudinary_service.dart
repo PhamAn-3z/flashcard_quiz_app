@@ -1,54 +1,88 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter/foundation.dart';
 
-/// Dịch vụ xử lý tải ảnh lên Cloudinary bằng cơ chế REST API (Unsigned Upload).
-/// Giải pháp này hoàn toàn hỗ trợ Null Safety và không phụ thuộc vào các thư viện cũ.
+/// Kết quả trả về sau khi upload lên Cloudinary
+class CloudinaryUploadResult {
+  final String secureUrl;
+  final String publicId;
+
+  CloudinaryUploadResult({required this.secureUrl, required this.publicId});
+}
+
+/// Dịch vụ xử lý tải file lên Cloudinary.
+/// Hỗ trợ cả Unsigned Upload (cũ) và Signed Upload (mới qua backend).
 class CloudinaryService {
-  final String _cloudName;
-  final String _uploadPreset;
+  CloudinaryService();
 
-  CloudinaryService()
-      : _cloudName = dotenv.env['CLOUDINARY_CLOUD_NAME'] ?? '',
-        _uploadPreset = dotenv.env['CLOUDINARY_UPLOAD_PRESET'] ?? '' {
-    if (_cloudName.isEmpty || _uploadPreset.isEmpty) {
-      debugPrint('⚠️ CẢNH BÁO: CLOUDINARY_CLOUD_NAME hoặc CLOUDINARY_UPLOAD_PRESET chưa được cấu hình trong .env');
-    }
-  }
-
-  /// Hàm tải file ảnh vật lý lên Cloudinary thông qua REST API.
-  /// imageFile: File ảnh từ bộ nhớ máy.
-  /// Trả về: secureUrl (đường dẫn ảnh bảo mật) nếu thành công, ngược lại trả về null.
-  Future<String?> uploadImage(File imageFile) async {
+  /// Hàm tải file lên Cloudinary sử dụng Signature từ backend.
+  /// [file]: File cần tải lên.
+  /// [signatureData]: Dữ liệu chữ ký nhận được từ API /images/generate-signature.
+  /// [resourceType]: 'image', 'video' (cho audio), hoặc 'raw'.
+  Future<CloudinaryUploadResult?> uploadFile({
+    required File file,
+    required Map<String, dynamic> signatureData,
+    String resourceType = 'image',
+  }) async {
     try {
-      final uri = Uri.parse('https://api.cloudinary.com/v1_1/$_cloudName/image/upload');
+      final String cloudName = signatureData['cloudName'];
+      final String apiKey = signatureData['apiKey'];
+      final String signature = signatureData['signature'];
+      final String timestamp = signatureData['timestamp'].toString();
+      final String uploadPreset = signatureData['uploadPreset'];
+
+      final uri = Uri.parse('https://api.cloudinary.com/v1_1/$cloudName/$resourceType/upload');
       
-      // 1. Tạo request đa phần (Multipart Request)
       var request = http.MultipartRequest('POST', uri);
       
-      // 2. Thêm các trường dữ liệu cần thiết cho Unsigned Upload
-      request.fields['upload_preset'] = _uploadPreset;
+      // Các trường bắt buộc cho Signed Upload
+      request.fields['api_key'] = apiKey;
+      request.fields['timestamp'] = timestamp;
+      request.fields['signature'] = signature;
+      request.fields['upload_preset'] = uploadPreset;
       
-      // 3. Thêm file ảnh vào request
-      request.files.add(await http.MultipartFile.fromPath('file', imageFile.path));
+      // Thêm file
+      request.files.add(await http.MultipartFile.fromPath('file', file.path));
 
-      // 4. Gửi request và nhận phản hồi
       var streamedResponse = await request.send();
       var response = await http.Response.fromStream(streamedResponse);
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> data = jsonDecode(response.body);
         final String? secureUrl = data['secure_url'];
-        debugPrint('✅ Tải ảnh lên Cloudinary thành công: $secureUrl');
-        return secureUrl;
+        final String? publicId = data['public_id'];
+        
+        if (secureUrl != null && publicId != null) {
+          debugPrint('✅ Tải lên Cloudinary thành công ($resourceType): $secureUrl');
+          return CloudinaryUploadResult(secureUrl: secureUrl, publicId: publicId);
+        }
+        return null;
       } else {
-        debugPrint('❌ Lỗi Cloudinary API: ${response.statusCode} - ${response.body}');
+        debugPrint('❌ Lỗi Cloudinary API ($resourceType): ${response.statusCode} - ${response.body}');
         return null;
       }
     } catch (e) {
-      debugPrint('❌ Lỗi không xác định khi tải ảnh: ${e.toString()}');
+      debugPrint('❌ Lỗi không xác định khi tải file ($resourceType): ${e.toString()}');
+      return null;
+    }
+  }
+
+  /// (DEPRECATED) Unsigned Upload - Hạn chế sử dụng vì lý do bảo mật.
+  Future<String?> uploadImage(File imageFile, {String cloudName = '', String uploadPreset = ''}) async {
+    try {
+      if (cloudName.isEmpty || uploadPreset.isEmpty) return null;
+      final uri = Uri.parse('https://api.cloudinary.com/v1_1/$cloudName/image/upload');
+      var request = http.MultipartRequest('POST', uri);
+      request.fields['upload_preset'] = uploadPreset;
+      request.files.add(await http.MultipartFile.fromPath('file', imageFile.path));
+      var streamedResponse = await request.send();
+      var response = await http.Response.fromStream(streamedResponse);
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body)['secure_url'];
+      }
+      return null;
+    } catch (e) {
       return null;
     }
   }
