@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../utils/constants.dart';
+import 'main_navigation.dart';
 import 'register_screen.dart';
 import 'otp_verification_screen.dart';
 
@@ -29,7 +30,26 @@ class _LoginScreenState extends State<LoginScreen> {
       
       if (result == null) {
         if (!mounted) return;
-        // Success
+        
+        // KIỂM TRA ROLE_ID ĐỂ ĐIỀU HƯỚNG
+        if (auth.user?.roleId == '3') {
+          // Nếu là Admin, dẫn vào trang Admin
+          // Do hiện tại chưa có AdminDashboard, ta tạm thời dẫn vào MainNavigation
+          // và hiển thị thông báo. Bạn có thể thay đổi đích đến sau.
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Chào mừng Admin quay trở lại!')),
+          );
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const MainNavigation()),
+          );
+        } else {
+          // Nếu là User thường, dẫn vào trang Main Navigation
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const MainNavigation()),
+          );
+        }
       } else if (result == 'unverified') {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(

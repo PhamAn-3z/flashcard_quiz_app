@@ -6,7 +6,7 @@ class User {
   final String? gender;
   final String? birthDate;
   final String? phoneNumber;
-  final String role;
+  final String roleId;
   final bool isPremium;
 
   User({
@@ -17,20 +17,20 @@ class User {
     this.gender,
     this.birthDate,
     this.phoneNumber,
-    required this.role,
+    required this.roleId,
     this.isPremium = false,
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
     return User(
-      id: json['id'] as String,
-      username: json['username'] as String,
-      email: json['email'] as String,
+      id: (json['user_id'] ?? json['id'] ?? '0').toString(),
+      username: json['username'] ?? '',
+      email: json['email'] ?? '',
       fullName: json['full_name'] ?? '',
       gender: json['gender'],
       birthDate: json['birth_date'],
       phoneNumber: json['phone_number'],
-      role: json['role'] ?? 'user',
+      roleId: (json['role_id'] ?? json['role'] ?? '2').toString(),
       isPremium: json['is_premium'] ?? false,
     );
   }
@@ -44,7 +44,7 @@ class User {
       'gender': gender,
       'birth_date': birthDate,
       'phone_number': phoneNumber,
-      'role': role,
+      'role_id': roleId,
       'is_premium': isPremium,
     };
   }

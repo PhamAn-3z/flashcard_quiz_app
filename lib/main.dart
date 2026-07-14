@@ -214,7 +214,15 @@ class _NotificationSetupScreenState extends State<NotificationSetupScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Trả trực tiếp về MainNavigation vì bọc Auth ngoài MyApp đã lo phần lọc login rồi
+    final auth = Provider.of<AuthProvider>(context);
+    
+    // Nếu là Admin (role_id == '3'), có thể trả về một màn hình Admin riêng ở đây nếu muốn
+    if (auth.user?.roleId == '3') {
+      // return const AdminDashboard(); // Ví dụ
+      return const MainNavigation(); 
+    }
+    
+    // Trả trực tiếp về MainNavigation cho User thường
     return const MainNavigation();
   }
 }
