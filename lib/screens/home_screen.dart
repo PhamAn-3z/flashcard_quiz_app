@@ -221,16 +221,31 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildHistoryCard(BuildContext context, dynamic data) {
-    final total = (data['totalCards'] ?? 0) as int;
-    final newCount = (data['newCount'] ?? 0) as int;
-    final learned = total - newCount;
-    final progress = total > 0 ? (learned / total) : 0.0;
+    // Xử lý dữ liệu lồng nhau từ API /decks/recent
+    final deckInfo = data['decks'] ?? {};
+    final authorInfo = deckInfo['author'] ?? {};
+    final String title = data['title'] ?? deckInfo['title'] ?? 'Bộ đề không tên';
+    final String authorName = authorInfo['username'] ?? data['authorName'] ?? "Ẩn danh";
+    
+    // Thống kê phiên học
+    final int learned = data['cards_learned'] ?? 0;
+    final int reviewed = data['cards_reviewed'] ?? 0;
+    final int totalInSession = learned + reviewed;
+    
+    // Thống kê tổng quan bộ đề để tính progress bar (nếu có)
+    final stats = data['ankiStats'] ?? deckInfo['ankiStats'];
+    final int totalCards = stats?['totalCount'] ?? deckInfo['total_cards'] ?? 10;
+    final progress = totalCards > 0 ? (learned / totalCards).clamp(0.0, 1.0) : 0.0;
+
     return GestureDetector(
       onTap: () {
-        Navigator.push(context, MaterialPageRoute(builder: (_) => DeckOverviewScreen(
-          deckId: data['deckId'], title: data['title'],
-          ankiStats: {'newCount': data['newCount'], 'learningCount': data['learningCount'], 'dueCount': data['dueCount']},
-        )));
+        final deckId = data['deckId'] ?? data['deck_id'] ?? deckInfo['id'];
+        if (deckId != null) {
+          Navigator.push(context, MaterialPageRoute(builder: (_) => DeckOverviewScreen(
+            deckId: deckId, title: title,
+            ankiStats: stats ?? {'newCount': 0, 'learningCount': 0, 'dueCount': 0},
+          )));
+        }
       },
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 4),
@@ -243,15 +258,15 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(data['title'], style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: AppColors.textPrimary), maxLines: 1, overflow: TextOverflow.ellipsis),
+                  Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: AppColors.textPrimary), maxLines: 1, overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 4),
-                  Text('Tác giả: ${data['authorName'] ?? "Ẩn danh"}', style: TextStyle(fontSize: 12, color: Colors.grey.shade500, fontWeight: FontWeight.w500)),
+                  Text('Tác giả: $authorName', style: TextStyle(fontSize: 12, color: Colors.grey.shade500, fontWeight: FontWeight.w500)),
                   const SizedBox(height: 16),
                   Container(height: 8, width: double.infinity, decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(10)), child: FractionallySizedBox(alignment: Alignment.centerLeft, widthFactor: progress, child: Container(decoration: BoxDecoration(color: const Color(0xFF10B981), borderRadius: BorderRadius.circular(10))))),
                   const SizedBox(height: 10),
                   Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                    Text('Đã học $learned/$total thẻ', style: TextStyle(fontSize: 13, color: Colors.grey.shade600, fontWeight: FontWeight.bold)),
-                    Text(_formatLastStudied(DateTime.tryParse(data['lastStudiedAt'] ?? '')), style: TextStyle(fontSize: 12, color: Colors.grey.shade400)),
+                    Text('Vừa học $totalInSession thẻ', style: TextStyle(fontSize: 13, color: Colors.grey.shade600, fontWeight: FontWeight.bold)),
+                    Text(_formatLastStudied(DateTime.tryParse(data['studied_at'] ?? data['lastStudiedAt'] ?? '')), style: TextStyle(fontSize: 12, color: Colors.grey.shade400)),
                   ]),
                 ],
               ),

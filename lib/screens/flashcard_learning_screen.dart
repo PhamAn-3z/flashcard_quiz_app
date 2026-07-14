@@ -26,7 +26,6 @@ class _FlashcardLearningScreenState extends State<FlashcardLearningScreen> {
   bool _isFinished = false;
   bool _isSaving = false; // Biến cờ ngăn chặn gọi API 2 lần
   Map<String, dynamic>? _summaryData;
-  final List<Map<String, dynamic>> _sessionRatings = [];
   final Set<int> _answeredCardIds = {};
   int _cardsLearnedCount = 0;
   int _cardsReviewedCount = 0;
@@ -114,14 +113,6 @@ class _FlashcardLearningScreenState extends State<FlashcardLearningScreen> {
       _answeredCardIds.add(currentCard.positionId);
     }
 
-    // 3. Lưu lại đánh giá cho API session-end
-    _sessionRatings.add({
-      "position_id": currentCard.positionId,
-      "rating": rating.toUpperCase() == 'HARD'
-          ? 'AGAIN'
-          : (rating.toUpperCase() == 'NORMAL' ? 'GOOD' : 'EASY')
-    });
-
     if (_currentIndex < _studyData!.flashcards.length - 1) {
       setState(() {
         _currentIndex++;
@@ -140,7 +131,6 @@ class _FlashcardLearningScreenState extends State<FlashcardLearningScreen> {
             cardsLearned: _cardsLearnedCount,
             cardsReviewed: _cardsReviewedCount,
             durationSeconds: duration,
-            cardRatings: _sessionRatings,
           );
 
       if (result != null && mounted) {
@@ -156,7 +146,8 @@ class _FlashcardLearningScreenState extends State<FlashcardLearningScreen> {
   }
 
   Future<void> _handleEarlyExit() async {
-    if (_sessionRatings.isEmpty || _isSaving) {
+    // Kiểm tra xem đã có câu trả lời nào chưa bằng cách check Set answeredCardIds
+    if (_answeredCardIds.isEmpty || _isSaving) {
       Navigator.pop(context);
       return;
     }
@@ -169,7 +160,6 @@ class _FlashcardLearningScreenState extends State<FlashcardLearningScreen> {
           cardsLearned: _cardsLearnedCount,
           cardsReviewed: _cardsReviewedCount,
           durationSeconds: duration,
-          cardRatings: _sessionRatings,
         );
     if (mounted) {
       context.read<AuthProvider>().refreshProfile();

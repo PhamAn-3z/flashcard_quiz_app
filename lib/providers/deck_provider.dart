@@ -384,9 +384,28 @@ class DeckProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> updateStudyProgress(int positionId, String rating) async {
-    // Không gọi API ở đây nữa để tránh quá tải mạng và lag
-    debugPrint('Card $positionId rated $rating - stored in local session');
+  List<Map<String, dynamic>> _sessionRatings = [];
+
+  void clearSession() {
+    _sessionRatings = [];
+  }
+
+  void updateStudyProgress(int positionId, String rating) {
+    // Chuyển đổi rating text sang số tương ứng với Backend (Again: 1, Hard: 2, Good: 3, Easy: 4)
+    int ratingValue;
+    switch (rating.toUpperCase()) {
+      case 'HARD': ratingValue = 2; break;
+      case 'EASY': ratingValue = 4; break;
+      case 'NORMAL':
+      case 'GOOD': ratingValue = 3; break;
+      default: ratingValue = 1; // AGAIN
+    }
+
+    _sessionRatings.add({
+      'position_id': positionId,
+      'rating': ratingValue,
+    });
+    debugPrint('Đã ghi nhận thẻ $positionId với rating $ratingValue');
   }
 
   Future<Map<String, dynamic>?> endStudySession({
@@ -394,7 +413,6 @@ class DeckProvider with ChangeNotifier {
     required int cardsLearned,
     required int cardsReviewed,
     required int durationSeconds,
-    required List<Map<String, dynamic>> cardRatings,
   }) async {
     try {
       final response = await _dio.post(
@@ -404,15 +422,17 @@ class DeckProvider with ChangeNotifier {
           "cards_learned": cardsLearned,
           "cards_reviewed": cardsReviewed,
           "duration_seconds": durationSeconds,
-          "card_ratings": cardRatings,
+          "card_ratings": _sessionRatings,
         },
       );
 
+      clearSession(); // Xóa dữ liệu phiên cũ sau khi gửi thành công
+
       if (response.statusCode == 200 && response.data['success'] == true) {
-        // Tải lại cả danh sách cá nhân và khám phá để đồng bộ thông số
         await Future.wait([
           fetchMyDecks(),
           fetchExploreDecks(),
+          fetchRecentDecks(),
         ]);
         return response.data['data'];
       }

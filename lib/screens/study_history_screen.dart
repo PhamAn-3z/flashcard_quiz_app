@@ -1,52 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import '../utils/constants.dart';
+import '../providers/deck_provider.dart';
+import '../providers/auth_provider.dart';
+import 'deck_overview_screen.dart';
 
-class StudyHistoryScreen extends StatelessWidget {
+class StudyHistoryScreen extends StatefulWidget {
   const StudyHistoryScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    // Mock data for study history
-    final List<Map<String, dynamic>> historyItems = [
-      {
-        'type': 'flashcard',
-        'title': 'Ôn tập Flashcard N5',
-        'subtitle': 'Đã hoàn thành 20/20 thẻ',
-        'time': DateTime.now().subtract(const Duration(hours: 2)),
-        'exp': '+50 EXP',
-        'color': Colors.blue,
-        'icon': Icons.style_rounded,
-      },
-      {
-        'type': 'quiz',
-        'title': 'Kiểm tra Từ vựng N4',
-        'subtitle': 'Đạt điểm tuyệt đối: 10/10',
-        'time': DateTime.now().subtract(const Duration(days: 1, hours: 5)),
-        'exp': '+100 EXP',
-        'color': Colors.purple,
-        'icon': Icons.extension_rounded,
-      },
-      {
-        'type': 'flashcard',
-        'title': 'Học từ vựng Kanji N3',
-        'subtitle': 'Đã học thêm 15 từ mới',
-        'time': DateTime.now().subtract(const Duration(days: 2, hours: 1)),
-        'exp': '+40 EXP',
-        'color': Colors.orange,
-        'icon': Icons.menu_book_rounded,
-      },
-      {
-        'type': 'quiz',
-        'title': 'Mini Quiz: Trợ từ',
-        'subtitle': 'Hoàn thành bài kiểm tra nhanh',
-        'time': DateTime.now().subtract(const Duration(days: 3, hours: 10)),
-        'exp': '+25 EXP',
-        'color': Colors.teal,
-        'icon': Icons.timer_outlined,
-      },
-    ];
+  State<StudyHistoryScreen> createState() => _StudyHistoryScreenState();
+}
 
+class _StudyHistoryScreenState extends State<StudyHistoryScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<DeckProvider>().fetchRecentDecks();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
@@ -56,27 +33,49 @@ class StudyHistoryScreen extends StatelessWidget {
         foregroundColor: AppColors.textPrimary,
         elevation: 0,
       ),
-      body: CustomScrollView(
-        slivers: [
-          _buildHistorySummary(),
-          SliverPadding(
-            padding: const EdgeInsets.all(20),
-            sliver: SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) {
-                  final item = historyItems[index];
-                  return _buildHistoryItem(item);
-                },
-                childCount: historyItems.length,
-              ),
-            ),
-          ),
-        ],
+      body: Consumer2<DeckProvider, AuthProvider>(
+        builder: (context, deckProvider, authProvider, child) {
+          final historyItems = deckProvider.recentDecks;
+          final userStats = authProvider.userStats;
+
+          if (deckProvider.isLoading && historyItems.isEmpty) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          return CustomScrollView(
+            slivers: [
+              _buildHistorySummary(userStats),
+              if (historyItems.isEmpty)
+                const SliverFillRemaining(
+                  child: Center(
+                    child: Text('Chưa có lịch sử học tập.', style: TextStyle(color: Colors.grey)),
+                  ),
+                )
+              else
+                SliverPadding(
+                  padding: const EdgeInsets.all(20),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                        final item = historyItems[index];
+                        return _buildHistoryItem(context, item);
+                      },
+                      childCount: historyItems.length,
+                    ),
+                  ),
+                ),
+            ],
+          );
+        },
       ),
     );
   }
 
-  Widget _buildHistorySummary() {
+  Widget _buildHistorySummary(dynamic userStats) {
+    String exp = userStats?.totalExp?.toString() ?? '0';
+    String streak = userStats?.currentStreak?.toString() ?? '0';
+    String level = userStats?.level?.toString() ?? '1';
+
     return SliverToBoxAdapter(
       child: Container(
         padding: const EdgeInsets.all(24),
@@ -89,69 +88,115 @@ class StudyHistoryScreen extends StatelessWidget {
           ),
           borderRadius: BorderRadius.circular(28),
         ),
-        child: const Row(
+        child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
-            _SummaryStat(label: 'Tổng giờ học', value: '12.5h'),
-            _SummaryStat(label: 'Bài học', value: '48'),
-            _SummaryStat(label: 'Từ vựng', value: '350'),
+            _SummaryStat(label: 'Tổng EXP', value: exp),
+            _SummaryStat(label: 'Chuỗi ngày', value: streak),
+            _SummaryStat(label: 'Cấp độ', value: level),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildHistoryItem(Map<String, dynamic> item) {
+  Widget _buildHistoryItem(BuildContext context, Map<String, dynamic> item) {
+    // Xử lý dữ liệu lồng nhau từ Backend (Lý do: Supabase join)
+    final deckInfo = item['decks'] ?? {};
+    final authorInfo = deckInfo['author'] ?? {};
+
+    final String title = item['title'] ?? deckInfo['title'] ?? 'Bộ đề không tên';
+    final String authorName = authorInfo['username'] ?? 'Ẩn danh';
+    final dynamic deckId = item['deckId'] ?? item['deck_id'] ?? deckInfo['user_id'];
+    
+    final DateTime studiedAt = DateTime.tryParse(item['studied_at'] ?? '') ?? DateTime.now();
     final dateFormat = DateFormat('dd/MM HH:mm');
     
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 10, offset: const Offset(0, 4)),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: item['color'].withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(15),
+    final int learned = item['cards_learned'] ?? 0;
+    final int reviewed = item['cards_reviewed'] ?? 0;
+    final int duration = item['duration_seconds'] ?? 0;
+    
+    String durationText = '';
+    if (duration < 60) {
+      durationText = '$duration giây';
+    } else {
+      durationText = '${(duration / 60).floor()} phút';
+    }
+
+    return GestureDetector(
+      onTap: () {
+        if (deckId != null) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => DeckOverviewScreen(
+                deckId: deckId,
+                title: title,
+                ankiStats: item['ankiStats'] ?? deckInfo['ankiStats'] ?? {'newCount': 0, 'learningCount': 0, 'dueCount': 0},
+              ),
             ),
-            child: Icon(item['icon'], color: item['color'], size: 24),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(item['title'], style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
-                const SizedBox(height: 4),
-                Text(item['subtitle'], style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
-                const SizedBox(height: 4),
-                Text(
-                  dateFormat.format(item['time']),
-                  style: TextStyle(color: Colors.grey.shade400, fontSize: 11, fontWeight: FontWeight.w500),
-                ),
-              ],
+          );
+        }
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4)),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(15),
+              ),
+              child: const Icon(Icons.history_edu_rounded, color: AppColors.primary, size: 24),
             ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: AppColors.success.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(10),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15), maxLines: 1, overflow: TextOverflow.ellipsis),
+                  Text('Tác giả: $authorName', style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Đã học $learned thẻ • Ôn tập $reviewed thẻ',
+                    style: const TextStyle(color: AppColors.textSecondary, fontSize: 12, fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Icon(Icons.access_time_rounded, size: 10, color: Colors.grey.shade400),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${dateFormat.format(studiedAt)} • $durationText',
+                        style: TextStyle(color: Colors.grey.shade400, fontSize: 11, fontWeight: FontWeight.w500),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-            child: Text(
-              item['exp'],
-              style: const TextStyle(color: AppColors.success, fontWeight: FontWeight.w800, fontSize: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: AppColors.success.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Text(
+                'DONE',
+                style: TextStyle(color: AppColors.success, fontWeight: FontWeight.w800, fontSize: 12),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

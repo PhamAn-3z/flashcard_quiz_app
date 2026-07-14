@@ -316,7 +316,7 @@ class AuthProvider with ChangeNotifier {
     try {
       final response = await _dio.get('/stats/${_user!.id}');
       if (response.statusCode == 200) {
-        final data = response.data['data'];
+        final data = (response.data['data'] != null) ? response.data['data'] : response.data;
         _userStats = UserStats.fromJson(data);
         notifyListeners();
       }
