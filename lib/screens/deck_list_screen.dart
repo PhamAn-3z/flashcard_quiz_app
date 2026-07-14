@@ -141,7 +141,10 @@ class _DeckListScreenState extends State<DeckListScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.add, size: 24, color: Colors.black54),
-            onPressed: () => _showAddOptions(context),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const CreateDeckScreen()),
+            ),
           ),
         ],
       ),
@@ -232,36 +235,6 @@ class _DeckListScreenState extends State<DeckListScreen> {
             "Thư viện trống",
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black38),
           ),
-        ],
-      ),
-    );
-  }
-
-  void _showAddOptions(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
-      builder: (ctx) => Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ListTile(
-            leading: const Icon(Icons.edit_note, color: Colors.blueAccent),
-            title: const Text('Tạo bộ đề thủ công'),
-            onTap: () {
-              Navigator.pop(ctx);
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const CreateDeckScreen()));
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.paste, color: Colors.orangeAccent),
-            title: const Text('Bulk Import (Quizlet)'),
-            onTap: () {
-              Navigator.pop(ctx);
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const BulkImportScreen()));
-            },
-          ),
-          const SizedBox(height: 16),
         ],
       ),
     );

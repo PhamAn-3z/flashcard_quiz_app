@@ -1,3 +1,7 @@
+import 'dart:io';
+import 'dart:typed_data';
+import 'package:path_provider/path_provider.dart';
+import '../data/services/cloudinary_service.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import '../models/deck.dart';
@@ -331,6 +335,49 @@ class DeckProvider with ChangeNotifier {
     }
   }
 
+  Future<bool> updateCardContent({
+    required int deckId,
+    required int positionId,
+    List<Map<String, dynamic>>? headers,
+    List<Map<String, dynamic>>? terms,
+  }) async {
+    try {
+      final response = await _dio.patch(
+        '/decks/$deckId/cards/$positionId/content',
+        data: {
+          'headers': headers,
+          'terms': terms,
+        },
+      );
+      return response.statusCode == 200 && response.data['success'] == true;
+    } catch (e) {
+      debugPrint('Error updating card content: $e');
+      return false;
+    }
+  }
+
+  Future<bool> updatePersonalizedRanks(int deckId, List<Map<String, dynamic>> ranks) async {
+    try {
+      final response = await _dio.patch('/decks/$deckId/personalized-ranks', data: {
+        'ranks': ranks,
+      });
+      return response.statusCode == 200 && response.data['success'] == true;
+    } catch (e) {
+      debugPrint('Error updating personalized ranks: $e');
+      return false;
+    }
+  }
+
+  Future<bool> resetCardProgress(int positionId) async {
+    try {
+      final response = await _dio.post('/decks/cards/$positionId/reset-progress');
+      return response.statusCode == 200 && response.data['success'] == true;
+    } catch (e) {
+      debugPrint('Error resetting card progress: $e');
+      return false;
+    }
+  }
+
   Future<bool> saveDeck(int deckId) async {
     // Cập nhật local ngay lập tức (Optimistic Update)
     _updateLocalDeckLibraryStatus(deckId, true);
@@ -443,38 +490,95 @@ class DeckProvider with ChangeNotifier {
     }
   }
 
-  /// Tải file audio lên Cloudflare R2 thông qua Pre-signed URL từ Backend
-  Future<String?> uploadAudio(String fileName, List<int> fileBytes) async {
+  /// Lấy chữ ký từ backend để tải file lên Cloudinary
+  Future<Map<String, dynamic>?> getCloudinarySignature({String? oldPublicId}) async {
     try {
-      // 1. Lấy Pre-signed URL từ Backend
-      final urlResponse = await _dio.post('/audio/generate-upload-url', data: {
-        'fileName': fileName,
-      });
+      final response = oldPublicId == null 
+        ? await _dio.get('/images/generate-signature')
+        : await _dio.post('/images/update', data: {'oldPublicId': oldPublicId});
+
+      if (response.statusCode == 200 && response.data['success'] == true) {
+        return response.data['data'];
+      }
+      return null;
+    } catch (e) {
+      debugPrint('Error getting Cloudinary signature: $e');
+      return null;
+    }
+  }
+
+  /// Tải file audio lên Cloudflare R2 thông qua Pre-signed URL từ Backend
+  Future<Map<String, dynamic>?> uploadAudio(String fileName, List<int> fileBytes, {String? oldObjectKey}) async {
+    try {
+      // Xác định Content-Type dựa trên đuôi file
+      String contentType = 'audio/mpeg';
+      if (fileName.endsWith('.m4a')) contentType = 'audio/mp4';
+      if (fileName.endsWith('.aac')) contentType = 'audio/aac';
+      if (fileName.endsWith('.wav')) contentType = 'audio/wav';
+
+      // 1. Lấy Pre-signed URL từ Backend (Sử dụng API update nếu có file cũ)
+      final urlResponse = oldObjectKey == null
+        ? await _dio.post('/audio/generate-upload-url', data: {
+            'fileName': fileName,
+            'contentType': contentType,
+          })
+        : await _dio.post('/audio/update', data: {
+            'oldObjectKey': oldObjectKey,
+            'newFileName': fileName,
+            'contentType': contentType,
+          });
 
       if (urlResponse.statusCode == 200 && urlResponse.data['success'] == true) {
         final String uploadUrl = urlResponse.data['data']['uploadUrl'];
-        final String fileUrl = urlResponse.data['data']['fileUrl'];
+        final String fileUrl = urlResponse.data['data']['publicUrl'];
+        final String objectKey = urlResponse.data['data']['objectKey'];
 
         // 2. Tải bytes lên Cloudflare R2 bằng phương thức PUT
         final uploadDio = Dio();
         final response = await uploadDio.put(
           uploadUrl,
-          data: fileBytes, // Truyền trực tiếp list bytes
+          data: fileBytes is Uint8List ? fileBytes : Uint8List.fromList(fileBytes),
           options: Options(
             headers: {
               Headers.contentLengthHeader: fileBytes.length,
-              'Content-Type': 'application/octet-stream', // Xác định kiểu dữ liệu
+              'Content-Type': contentType,
             },
           ),
         );
 
         if (response.statusCode == 200) {
-          return fileUrl;
+          debugPrint('✅ Upload Audio R2 thành công: $fileUrl');
+          return {
+            'url': fileUrl,
+            'objectKey': objectKey,
+          };
         }
       }
     } catch (e) {
-      debugPrint('Error uploading audio: $e');
+      debugPrint('❌ Error uploading audio: $e');
     }
     return null;
+  }
+
+  /// Xóa ảnh từ Cloudinary thông qua Backend
+  Future<bool> deleteImage(String publicId) async {
+    try {
+      final response = await _dio.delete('/images/delete', data: {'publicId': publicId});
+      return response.statusCode == 200 && response.data['success'] == true;
+    } catch (e) {
+      debugPrint('Error deleting image: $e');
+      return false;
+    }
+  }
+
+  /// Xóa audio từ Cloudflare R2 thông qua Backend
+  Future<bool> deleteAudioFromR2(String objectKey) async {
+    try {
+      final response = await _dio.delete('/audio/delete', data: {'objectKey': objectKey});
+      return response.statusCode == 200 && response.data['success'] == true;
+    } catch (e) {
+      debugPrint('Error deleting audio: $e');
+      return false;
+    }
   }
 }

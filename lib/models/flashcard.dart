@@ -63,6 +63,8 @@ class CardCell {
   final String text;
   final String? imageUrl;
   final String? audioUrl;
+  final String? imagePublicId;
+  final String? audioObjectKey;
 
   CardCell({
     required this.termId,
@@ -70,6 +72,8 @@ class CardCell {
     required this.text,
     this.imageUrl,
     this.audioUrl,
+    this.imagePublicId,
+    this.audioObjectKey,
   });
 
   factory CardCell.fromJson(Map<String, dynamic> json) {
@@ -77,11 +81,28 @@ class CardCell {
     String cellText = "";
     String? img;
     String? audio;
+    String? imgId;
+    String? audioKey;
 
     if (content is Map) {
       cellText = content['text']?.toString() ?? "";
-      img = content['image_url'];
-      audio = content['audio_url'];
+
+      // Hỗ trợ cấu trúc lồng nhau mới
+      if (content.containsKey('image') && content['image'] is Map) {
+        img = content['image']['url'];
+        imgId = content['image']['public_id'];
+      } else {
+        // Tương thích ngược với cấu trúc phẳng cũ
+        img = content['image_url'];
+      }
+
+      if (content.containsKey('audio') && content['audio'] is Map) {
+        audio = content['audio']['url'];
+        audioKey = content['audio']['key'];
+      } else {
+        // Tương thích ngược với cấu trúc phẳng cũ
+        audio = content['audio_url'];
+      }
     } else if (content is String) {
       cellText = content;
     }
@@ -92,6 +113,8 @@ class CardCell {
       text: cellText,
       imageUrl: img,
       audioUrl: audio,
+      imagePublicId: imgId,
+      audioObjectKey: audioKey,
     );
   }
 }
