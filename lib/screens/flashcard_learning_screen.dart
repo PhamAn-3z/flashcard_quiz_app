@@ -409,6 +409,15 @@ class _FlashcardLearningScreenState extends State<FlashcardLearningScreen> {
                   },
                 ),
                 _buildSettingsOption(
+                  icon: Icons.sort_rounded,
+                  label: 'Thứ tự học tập',
+                  color: Colors.teal,
+                  onTap: () {
+                    Navigator.pop(context);
+                    _showOrderingSettings();
+                  },
+                ),
+                _buildSettingsOption(
                   icon: Icons.refresh_rounded,
                   label: 'Đặt lại tiến độ',
                   color: Colors.orange,
@@ -525,6 +534,117 @@ class _FlashcardLearningScreenState extends State<FlashcardLearningScreen> {
           }
         );
       },
+    );
+  }
+
+  void _showOrderingSettings() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+      builder: (context) {
+        return Container(
+          padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Thứ tự học tập', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 20),
+              _buildOrderOption(
+                icon: Icons.shuffle_rounded,
+                label: 'Trộn thẻ ngẫu nhiên',
+                description: 'Xáo trộn tất cả các thẻ trong phiên này',
+                onTap: () {
+                  Navigator.pop(context);
+                  _applySorting('SHUFFLE');
+                },
+              ),
+              _buildOrderOption(
+                icon: Icons.fiber_new_rounded,
+                label: 'Ưu tiên thẻ mới',
+                description: 'Học những thẻ chưa thuộc trước',
+                onTap: () {
+                  Navigator.pop(context);
+                  _applySorting('NEW_FIRST');
+                },
+              ),
+              _buildOrderOption(
+                icon: Icons.history_rounded,
+                label: 'Thứ tự mặc định',
+                description: 'Ôn tập thẻ cũ trước, thẻ mới sau',
+                onTap: () {
+                  Navigator.pop(context);
+                  _applySorting('DEFAULT');
+                },
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildOrderOption({required IconData icon, required String label, required String description, required VoidCallback onTap}) {
+    return ListTile(
+      leading: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+        child: Icon(icon, color: AppColors.primary),
+      ),
+      title: Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
+      subtitle: Text(description, style: const TextStyle(fontSize: 12)),
+      onTap: onTap,
+    );
+  }
+
+  void _applySorting(String type) {
+    if (_studyData == null) return;
+    
+    String label = 'Thứ tự mặc định';
+    
+    setState(() {
+      if (type == 'SHUFFLE') {
+        label = 'Trộn thẻ ngẫu nhiên';
+        _studyData!.flashcards.shuffle();
+      } else if (type == 'NEW_FIRST') {
+        label = 'Ưu tiên thẻ mới';
+        _studyData!.flashcards.sort((a, b) {
+          int getPriority(String status) {
+            switch (status.toUpperCase()) {
+              case 'NEW': return 1;      // Thẻ chưa từng gặp (Ưu tiên nhất)
+              case 'LEARNING': return 2; // Thẻ đang học dở
+              case 'REVIEW': return 3;   // Thẻ đã thuộc (Học sau cùng)
+              default: return 4;
+            }
+          }
+          return getPriority(a.studyState.status).compareTo(getPriority(b.studyState.status));
+        });
+      } else {
+        // Mặc định (Giống Anki): Phải ôn thẻ cũ sắp quên trước khi học cái mới
+        label = 'Thứ tự mặc định';
+        _studyData!.flashcards.sort((a, b) {
+          int getPriority(String status) {
+            switch (status.toUpperCase()) {
+              case 'REVIEW': return 1;   // Ôn tập thẻ đã thuộc (Ưu tiên nhất để tránh quên)
+              case 'LEARNING': return 2;
+              case 'NEW': return 3;      // Thẻ mới (Học sau cùng)
+              default: return 4;
+            }
+          }
+          return getPriority(a.studyState.status).compareTo(getPriority(b.studyState.status));
+        });
+      }
+      _currentIndex = 0; // Luôn đưa về thẻ đầu tiên sau khi sắp xếp lại
+      _isCardFlipped = false;
+      _activeGroupIdForPopup = null;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Đã cập nhật: $label'),
+        duration: const Duration(seconds: 1),
+        backgroundColor: AppColors.primary,
+      ),
     );
   }
 
