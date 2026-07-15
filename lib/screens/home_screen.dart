@@ -532,7 +532,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Text('${stats.totalExp} XP', style: const TextStyle(color: AppColors.accent, fontWeight: FontWeight.bold)),
           ]),
           const SizedBox(height: 12),
-          ClipRRect(borderRadius: BorderRadius.circular(10), child: LinearProgressIndicator(value: (stats.totalExp % 500) / 500, backgroundColor: Colors.white10, valueColor: const AlwaysStoppedAnimation<Color>(AppColors.accent), minHeight: 8)),
+          ClipRRect(borderRadius: BorderRadius.circular(10), child: LinearProgressIndicator(value: (stats.totalExp % 100) / 100, backgroundColor: Colors.white10, valueColor: const AlwaysStoppedAnimation<Color>(AppColors.accent), minHeight: 8)),
           const SizedBox(height: 16),
           Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
             _buildStatSmall('${stats.currentStreak}', 'Streak', Icons.local_fire_department_rounded, Colors.orange),

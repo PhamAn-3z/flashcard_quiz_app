@@ -259,6 +259,21 @@ class AuthProvider with ChangeNotifier {
 
       if (userData == null) return;
 
+      // FIX: Bóc tách stats từ object lồng nhau trả về từ Backend
+      if (userData['stats'] != null) {
+        final statsMap = Map<String, dynamic>.from(userData['stats']);
+        _userStats = UserStats.fromJson(statsMap);
+      } else {
+        // Fallback nếu không có stats
+        _userStats = UserStats(
+          currentStreak: 0,
+          maxStreak: 0,
+          totalExp: 0,
+          level: 1,
+          lastStudyDate: null,
+        );
+      }
+
       // Map API response to User model
       final dynamic idValue = userData['user_id'] ?? userData['id'] ?? userData['sub'];
       
@@ -275,14 +290,6 @@ class AuthProvider with ChangeNotifier {
         birthDate: userData['birth_date'] ?? userData['date_of_birth'],
       );
 
-      // We still use mock stats for now unless API provides them
-      _userStats = UserStats(
-        currentStreak: userData['current_streak'] ?? 5,
-        maxStreak: userData['max_streak'] ?? 12,
-        totalExp: userData['total_exp'] ?? 1540,
-        level: userData['level'] ?? 4,
-        lastStudyDate: userData['last_study_date'] ?? DateFormat('yyyy-MM-dd').format(DateTime.now()),
-      );
       await _fetchStats();
     } catch (e) {
       rethrow;
@@ -301,7 +308,7 @@ class AuthProvider with ChangeNotifier {
     }
 
     final int newTotalExp = _userStats!.totalExp - amount;
-    final int newLevel = newTotalExp ~/ 500 + 1;
+    final int newLevel = newTotalExp ~/ 100 + 1;
 
     _userStats = _userStats!.copyWith(
       totalExp: newTotalExp,
@@ -329,7 +336,12 @@ class AuthProvider with ChangeNotifier {
       final response = await _dio.get('/stats/${_user!.id}');
       if (response.statusCode == 200) {
         final data = (response.data['data'] != null) ? response.data['data'] : response.data;
-        _userStats = UserStats.fromJson(data);
+        
+        // Tính toán level dựa trên total_exp (100 exp = 1 level)
+        final int exp = data['total_exp'] ?? 0;
+        final int calculatedLevel = (exp ~/ 100) + 1;
+        
+        _userStats = UserStats.fromJson(data).copyWith(level: calculatedLevel);
         notifyListeners();
       }
     } catch (e) {
@@ -361,7 +373,7 @@ class AuthProvider with ChangeNotifier {
     }
 
     final int newTotalExp = _userStats!.totalExp + expEarned;
-    final int newLevel = newTotalExp ~/ 500 + 1;
+    final int newLevel = newTotalExp ~/ 100 + 1;
 
     _userStats = _userStats!.copyWith(
       currentStreak: newStreak,

@@ -16,6 +16,8 @@ import 'bulk_import_screen.dart';
 import '../data/services/cloudinary_service.dart';
 import 'package:audioplayers/audioplayers.dart';
 
+import 'membership_screen.dart';
+
 /// Class định nghĩa cấu trúc dữ liệu cho từng ô trong ma trận
 /// Giúp kiểm soát kiểu dữ liệu chặt chẽ, tránh lỗi subtype
 class CellData {
@@ -70,6 +72,7 @@ class _CreateDeckScreenState extends State<CreateDeckScreen> {
   String _publicStatus = 'public';
   int? _parentId;
   bool _isSaving = false;
+  Map<String, dynamic>? _limitData;
   final AudioRecorder _audioRecorder = AudioRecorder();
   final AudioPlayer _audioPlayer = AudioPlayer();
   final PageController _pageController = PageController(viewportFraction: 0.94);
@@ -86,6 +89,7 @@ class _CreateDeckScreenState extends State<CreateDeckScreen> {
   @override
   void initState() {
     super.initState();
+    _checkLimit();
     // Thêm 2 thẻ mặc định mà không kích hoạt hiệu ứng cuộn
     _addNewRow(animate: false);
     _addNewRow(animate: false);
@@ -157,6 +161,13 @@ class _CreateDeckScreenState extends State<CreateDeckScreen> {
     super.dispose();
   }
 
+  Future<void> _checkLimit() async {
+    final data = await context.read<DeckProvider>().fetchMembershipLimit();
+    if (mounted) {
+      setState(() => _limitData = data);
+    }
+  }
+
   // --- LOGIC XỬ LÝ MA TRẬN ---
 
   CellData _createCellData({String text = ''}) {
@@ -184,6 +195,16 @@ class _CreateDeckScreenState extends State<CreateDeckScreen> {
   }
 
   void _addNewRow({bool animate = true}) {
+    if (matrixRows.length >= 200) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Mỗi bộ đề tối đa được tạo 200 thẻ.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
     setState(() {
       Map<String, CellData> newRow = {};
       for (var header in headers) {
@@ -750,13 +771,41 @@ class _CreateDeckScreenState extends State<CreateDeckScreen> {
                           height: 24,
                           child: CircularProgressIndicator(strokeWidth: 2))))
               : IconButton(
-                  onPressed: _handleCreateDeck,
-                  icon: const Icon(Icons.done, color: AppColors.primary, size: 28)),
+                  onPressed: (_limitData != null && _limitData!['canCreateMore'] == false) ? null : _handleCreateDeck,
+                  icon: Icon(Icons.done, 
+                    color: (_limitData != null && _limitData!['canCreateMore'] == false) ? Colors.grey : AppColors.primary, 
+                    size: 28)),
         ],
       ),
       body: NestedScrollView(
         headerSliverBuilder: (context, innerBoxIsScrolled) {
           return [
+            if (_limitData != null && _limitData!['canCreateMore'] == false)
+              SliverToBoxAdapter(
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  color: Colors.redAccent.withOpacity(0.1),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 20),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Text(
+                          'Bạn đã đạt giới hạn bộ đề. Vui lòng nâng cấp để lưu.',
+                          style: TextStyle(color: Colors.redAccent, fontSize: 13, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          Navigator.push(context, MaterialPageRoute(builder: (_) => MembershipScreen()));
+                        },
+                        child: const Text('NÂNG CẤP', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900)),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
               sliver: SliverList(
@@ -775,7 +824,10 @@ class _CreateDeckScreenState extends State<CreateDeckScreen> {
                               final result = await Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                      builder: (context) => const BulkImportScreen(returnDataOnly: true)));
+                                      builder: (context) => BulkImportScreen(
+                                        returnDataOnly: true,
+                                        existingCount: matrixRows.length,
+                                      )));
                               
                               if (result != null && result is Map<String, dynamic>) {
                                 final List<String> importedHeaders = List<String>.from(result['headers']);
@@ -837,7 +889,17 @@ class _CreateDeckScreenState extends State<CreateDeckScreen> {
                         _buildActionButton(
                             icon: Icons.view_column_rounded,
                             label: 'Thêm nhóm',
-                            onPressed: _showAddColumnDialog),
+                            isPremiumOnly: true,
+                            onPressed: () {
+                              final String rank = _limitData?['membershipName'] ?? 'None';
+                              final bool hasAccess = rank == 'Pro' || rank == 'Premium';
+                              
+                              if (hasAccess) {
+                                _showAddColumnDialog();
+                              } else {
+                                _showPremiumRestrictionDialog('Tính năng Thêm nhóm yêu cầu nâng cấp lên gói PRO hoặc PREMIUM.');
+                              }
+                            }),
                         const SizedBox(width: 12),
                         _buildActionButton(
                             icon: Icons.add_box_rounded,
@@ -1120,6 +1182,7 @@ class _CreateDeckScreenState extends State<CreateDeckScreen> {
                                     icon: Icons.add_photo_alternate_outlined,
                                     onTap: () => _pickImage(cell),
                                     isActive: false,
+                                    isPremiumOnly: true,
                                   ),
                                   const SizedBox(width: 10),
                                 ],
@@ -1130,6 +1193,7 @@ class _CreateDeckScreenState extends State<CreateDeckScreen> {
                                     isActive: cell.audioUrl != null,
                                     isLoading: cell.audioUrl == 'uploading',
                                     onLongPress: cell.audioUrl != null ? () => _removeAudio(cell) : null,
+                                    isPremiumOnly: true,
                                   ),
                                 ],
                                 if (cell.audioUrl != null && cell.audioUrl != 'uploading') ...[
@@ -1233,42 +1297,61 @@ class _CreateDeckScreenState extends State<CreateDeckScreen> {
     VoidCallback? onLongPress,
     bool isActive = false,
     bool isLoading = false,
+    bool isPremiumOnly = false,
   }) {
+    final bool isUserPremium = _limitData != null && 
+        _limitData!['membershipName'] == 'Premium';
+
+    final bool showCrown = isPremiumOnly && !isUserPremium;
+
     return InkWell(
-      onTap: onTap,
-      onLongPress: onLongPress,
-      child: Container(
-        padding: const EdgeInsets.all(6),
-        decoration: BoxDecoration(
-          color: isActive
-              ? (icon == Icons.mic_none_rounded
-                  ? AppColors.success.withOpacity(0.1)
-                  : AppColors.primary.withOpacity(0.1))
-              : Colors.grey.shade50,
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(
-            color: isActive
-                ? (icon == Icons.mic_none_rounded
-                    ? AppColors.success
-                    : AppColors.primary)
-                : Colors.grey.shade200,
-          ),
-        ),
-        child: isLoading
-            ? const SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
-            : Icon(
-                icon,
-                size: 16,
+      onTap: (isUserPremium || !isPremiumOnly) 
+          ? onTap 
+          : () => _showPremiumRestrictionDialog('Tính năng Multimedia yêu cầu nâng cấp lên gói cao nhất (PREMIUM).'),
+      onLongPress: (isUserPremium || !isPremiumOnly) ? onLongPress : null,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: isActive
+                  ? (icon == Icons.mic_none_rounded
+                      ? AppColors.success.withOpacity(0.1)
+                      : AppColors.primary.withOpacity(0.1))
+                  : Colors.grey.shade50,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
                 color: isActive
                     ? (icon == Icons.mic_none_rounded
                         ? AppColors.success
                         : AppColors.primary)
-                    : Colors.grey,
+                    : Colors.grey.shade200,
               ),
+            ),
+            child: isLoading
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Icon(
+                    icon,
+                    size: 16,
+                    color: isActive
+                        ? (icon == Icons.mic_none_rounded
+                            ? AppColors.success
+                            : AppColors.primary)
+                        : Colors.grey,
+                  ),
+          ),
+          if (showCrown)
+            const Positioned(
+              top: -6,
+              right: -6,
+              child: Icon(Icons.workspace_premium_rounded, size: 12, color: Colors.amber),
+            ),
+        ],
       ),
     );
   }
@@ -1489,7 +1572,11 @@ class _CreateDeckScreenState extends State<CreateDeckScreen> {
   Widget _buildActionButton(
       {required IconData icon,
       required String label,
-      required VoidCallback onPressed}) {
+      required VoidCallback onPressed,
+      bool isPremiumOnly = false}) {
+    final String rank = _limitData?['membershipName'] ?? 'None';
+    final bool hasAccess = rank == 'Pro' || rank == 'Premium';
+
     return InkWell(
         onTap: onPressed,
         child: Container(
@@ -1503,13 +1590,66 @@ class _CreateDeckScreenState extends State<CreateDeckScreen> {
               const SizedBox(width: 6),
               Text(label,
                   style: const TextStyle(
-                      fontSize: 13, fontWeight: FontWeight.w500))
+                      fontSize: 13, fontWeight: FontWeight.w500)),
+              if (isPremiumOnly && !hasAccess) ...[
+                const SizedBox(width: 6),
+                const Icon(Icons.workspace_premium_rounded, size: 14, color: Colors.amber),
+              ]
             ])));
   }
 
   void _showAddColumnDialog() {
     final controller = TextEditingController();
     showDialog(context: context, builder: (ctx) => AlertDialog(title: const Text('Thêm thuộc tính mới'), content: TextField(controller: controller, autofocus: true, decoration: const InputDecoration(hintText: 'Ví dụ: Hán Việt, Ví dụ...')), actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')), ElevatedButton(onPressed: () { _addNewColumn(controller.text); Navigator.pop(ctx); }, child: const Text('Thêm'))]));
+  }
+
+  void _showPremiumRestrictionDialog(String message) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(color: Colors.amber.withOpacity(0.1), shape: BoxShape.circle),
+              child: const Icon(Icons.workspace_premium_rounded, color: Colors.amber, size: 40),
+            ),
+            const SizedBox(height: 16),
+            const Text('Tính năng giới hạn', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.grey, height: 1.4),
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => MembershipScreen()));
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                child: const Text('NÂNG CẤP NGAY', style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('ĐỂ SAU', style: TextStyle(color: Colors.grey)),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _showRenameColumnDialog(String id, String currentLabel) {

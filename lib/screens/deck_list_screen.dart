@@ -7,6 +7,7 @@ import '../utils/constants.dart';
 import 'bulk_import_screen.dart';
 import 'create_deck_screen.dart';
 import 'deck_overview_screen.dart';
+import 'membership_screen.dart';
 import 'package:intl/intl.dart';
 
 class DeckListScreen extends StatefulWidget {
@@ -35,6 +36,145 @@ class _DeckListScreenState extends State<DeckListScreen> {
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  Future<void> _handleCreateNew(BuildContext context) async {
+    final provider = context.read<DeckProvider>();
+    
+    // Show loading
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    final limitData = await provider.fetchMembershipLimit();
+    
+    if (context.mounted) {
+      Navigator.pop(context); // Close loading
+
+      if (limitData != null && limitData['canCreateMore'] == false) {
+        _showUpgradeDialog(context, limitData);
+      } else {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const CreateDeckScreen()),
+        );
+      }
+    }
+  }
+
+  void _showUpgradeDialog(BuildContext context, Map<String, dynamic> data) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(color: Colors.amber.withOpacity(0.1), shape: BoxShape.circle),
+              child: const Icon(Icons.workspace_premium_rounded, color: Colors.amber, size: 40),
+            ),
+            const SizedBox(height: 16),
+            const Text('Đạt giới hạn bộ đề', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            Text(
+              'Bạn đã tạo ${data['currentDecks']}/${data['maxDecks']} bộ đề. Vui lòng nâng cấp lên gói PRO để tạo không giới hạn!',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.grey),
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => MembershipScreen()));
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                child: const Text('NÂNG CẤP NGAY', style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('ĐỂ SAU', style: TextStyle(color: Colors.grey)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMembershipStatusBanner(DeckProvider provider) {
+    return FutureBuilder<Map<String, dynamic>?>(
+      future: provider.fetchMembershipLimit(),
+      builder: (context, snapshot) {
+        if (snapshot.hasData && snapshot.data != null) {
+          final data = snapshot.data!;
+          final int current = data['currentDecks'];
+          final int max = data['maxDecks'];
+          final String rank = data['membershipName'];
+          final bool isUnlimited = max == 0 || max >= 9999;
+
+          return Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border(bottom: BorderSide(color: Colors.grey.shade200, width: 1)),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.layers_outlined, 
+                  size: 16, 
+                  color: rank == 'Free' ? Colors.blue : Colors.amber.shade700
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Hạn mức bộ đề ($rank): ',
+                  style: TextStyle(
+                    fontSize: 12, 
+                    fontWeight: FontWeight.w500, 
+                    color: Colors.grey.shade600
+                  ),
+                ),
+                Text(
+                  isUnlimited ? '$current / ∞' : '$current / $max',
+                  style: TextStyle(
+                    fontSize: 12, 
+                    fontWeight: FontWeight.bold, 
+                    color: (max > 0 && current >= max) ? Colors.redAccent : Colors.black87
+                  ),
+                ),
+                const Spacer(),
+                if (max > 0 && current >= max)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.redAccent.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Text(
+                      'ĐÃ ĐẦY',
+                      style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: Colors.redAccent),
+                    ),
+                  ),
+              ],
+            ),
+          );
+        }
+        return const SizedBox.shrink();
+      },
+    );
   }
 
   List<Deck> _filterAndSortDecks(List<Deck> decks) {
@@ -141,15 +281,13 @@ class _DeckListScreenState extends State<DeckListScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.add, size: 24, color: Colors.black54),
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const CreateDeckScreen()),
-            ),
+            onPressed: () => _handleCreateNew(context),
           ),
         ],
       ),
       body: Column(
         children: [
+          _buildMembershipStatusBanner(deckProvider),
           // 1. Search Bar
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),

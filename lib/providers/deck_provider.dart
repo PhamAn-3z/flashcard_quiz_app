@@ -368,6 +368,19 @@ class DeckProvider with ChangeNotifier {
     }
   }
 
+  Future<Map<String, dynamic>?> fetchMembershipLimit() async {
+    try {
+      final response = await _dio.get('/decks/membership-limit');
+      if (response.statusCode == 200 && response.data['success'] == true) {
+        return response.data['data'];
+      }
+      return null;
+    } catch (e) {
+      debugPrint('Error fetching membership limit: $e');
+      return null;
+    }
+  }
+
   Future<bool> resetDeckProgress(int deckId) async {
     try {
       final response = await _dio.post('/decks/$deckId/reset-progress');

@@ -5,11 +5,17 @@ import 'package:provider/provider.dart';
 import '../providers/deck_provider.dart';
 import '../models/deck.dart';
 import '../utils/constants.dart';
+import 'membership_screen.dart';
 
 class BulkImportScreen extends StatefulWidget {
   final bool returnDataOnly; // Thêm flag để biết là trả về data hay tự import
+  final int existingCount;   // Số lượng thẻ đã có sẵn
 
-  const BulkImportScreen({super.key, this.returnDataOnly = false});
+  const BulkImportScreen({
+    super.key, 
+    this.returnDataOnly = false,
+    this.existingCount = 0,
+  });
 
   @override
   State<BulkImportScreen> createState() => _BulkImportScreenState();
@@ -34,11 +40,21 @@ class _BulkImportScreenState extends State<BulkImportScreen> {
 
   List<Map<String, dynamic>> _previewHeaders = [];
   List<Map<String, String>> _previewRows = [];
+  Map<String, dynamic>? _limitData;
+  int _truncatedCount = 0; // Số thẻ bị cắt bớt
 
   @override
   void initState() {
     super.initState();
+    _checkLimit();
     _rawTextController.addListener(_onTextChanged);
+  }
+
+  Future<void> _checkLimit() async {
+    final data = await context.read<DeckProvider>().fetchMembershipLimit();
+    if (mounted) {
+      setState(() => _limitData = data);
+    }
   }
 
   @override
@@ -81,11 +97,21 @@ class _BulkImportScreenState extends State<BulkImportScreen> {
     List<String> rawLines = rawText.split(effectiveCardDelim);
     rawLines.removeWhere((line) => line.trim().isEmpty);
 
+    // Tính toán số lượng thẻ tối đa có thể thêm vào (Tổng không quá 200)
+    final int maxAllowedNew = (200 - widget.existingCount).clamp(0, 200);
+    int truncated = 0;
+
+    if (rawLines.length > maxAllowedNew) {
+      truncated = rawLines.length - maxAllowedNew;
+      rawLines = rawLines.sublist(0, maxAllowedNew);
+    }
+
     if (rawLines.isEmpty) {
       if (mounted) {
         setState(() {
           _previewRows = [];
           _previewHeaders = [];
+          _truncatedCount = 0;
         });
       }
       return;
@@ -140,6 +166,7 @@ class _BulkImportScreenState extends State<BulkImportScreen> {
       setState(() {
         _previewHeaders = headers;
         _previewRows = rows;
+        _truncatedCount = truncated;
       });
     }
   }
@@ -233,6 +260,26 @@ class _BulkImportScreenState extends State<BulkImportScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (_limitData != null && _limitData!['canCreateMore'] == false && !widget.returnDataOnly)
+              Container(
+                width: double.infinity,
+                margin: const EdgeInsets.only(bottom: 20),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(color: Colors.redAccent.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+                child: Row(
+                  children: [
+                    const Icon(Icons.warning_amber_rounded, color: Colors.redAccent),
+                    const SizedBox(width: 12),
+                    Expanded(child: Text('Bạn đã đạt giới hạn bộ đề. Vui lòng nâng cấp PRO để tiếp tục.', style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 13))),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => MembershipScreen()));
+                      },
+                      child: const Text('NÂNG CẤP', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900)),
+                    ),
+                  ],
+                ),
+              ),
             if (!widget.returnDataOnly) ...[
               const Text('1. Cấu hình Bộ đề',
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
@@ -311,6 +358,22 @@ class _BulkImportScreenState extends State<BulkImportScreen> {
             const SizedBox(height: 20),
             const Text('Xem trước',
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+            if (_truncatedCount > 0)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Row(
+                  children: [
+                    const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 16),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'Dữ liệu quá dài! Đã tự động cắt bớt $_truncatedCount thẻ để không vượt quá giới hạn 200 thẻ.',
+                        style: const TextStyle(color: Colors.orange, fontSize: 12, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             const SizedBox(height: 10),
             if (_previewRows.isEmpty)
               const Center(
@@ -372,7 +435,7 @@ class _BulkImportScreenState extends State<BulkImportScreen> {
               child: _isLoading
                   ? const Center(child: CircularProgressIndicator())
                   : ElevatedButton(
-                      onPressed: _handleImport,
+                      onPressed: (_limitData != null && _limitData!['canCreateMore'] == false && !widget.returnDataOnly) ? null : _handleImport,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
                         foregroundColor: Colors.white,
