@@ -138,15 +138,15 @@ class _HomeScreenState extends State<HomeScreen> {
           _buildFooterInfoItem(
             Icons.location_on_rounded, 
             'Trụ sở Hà Nội:', 
-            'Tầng 5, Tòa nhà Ladeco, 266 Đội Cấn, Ba Đình',
-            onTap: () => _launchURL('https://www.google.com/maps/search/?api=1&query=266+Doi+Can+Ba+Dinh+Ha+Noi'),
+            'Khu Công Nghệ Cao Hòa Lạc, CT03, Hòa Lạc, Hà Nội',
+            onTap: () => _launchURL('https://www.google.com/maps/search/?api=1&query=20.9852,105.5269'),
           ),
           const SizedBox(height: 16),
           _buildFooterInfoItem(
             Icons.location_on_rounded, 
             'Chi nhánh TP. HCM:', 
-            '135/21 Nguyễn Cửu Vân, P.17, Q. Bình Thạnh',
-            onTap: () => _launchURL('https://www.google.com/maps/search/?api=1&query=135/21+Nguyen+Cuu+Van+Binh+Thanh+HCM'),
+            '7 Đ. D1, Tăng Nhơn Phú, TP. Thủ Đức, Hồ Chí Minh',
+            onTap: () => _launchURL('https://www.google.com/maps/search/?api=1&query=10.8412,106.8096'),
           ),
           
           const Divider(height: 40, thickness: 1, color: Color(0xFFF1F5F9)),

@@ -70,5 +70,14 @@
 	<string>Ứng dụng cần sử dụng Microphone để thu âm phát âm của bạn.</string>
 	<key>NSAppleMusicUsageDescription</key>
 	<string>Ứng dụng cần truy cập thư viện nhạc để lấy file âm thanh.</string>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>https</string>
+		<string>http</string>
+		<string>tel</string>
+		<string>mailto</string>
+		<string>googlechromes</string>
+		<string>comgooglemaps</string>
+	</array>
 </dict>
 </plist>
