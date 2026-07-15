@@ -229,6 +229,41 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
     });
   }
 
+  bool _findInSubDecks(List<dynamic> decks, int id) {
+    for (var d in decks) {
+      if (d.id == id) return true;
+      if (d.subDecks.isNotEmpty && _findInSubDecks(d.subDecks, id)) return true;
+    }
+    return false;
+  }
+
+  Future<void> _showResetConfirmation(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Đặt lại tiến độ?'),
+        content: const Text('Toàn bộ tiến độ học tập của các thẻ trong bộ đề này sẽ bị xóa. Bạn sẽ bắt đầu học lại từ đầu.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('HỦY')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.orange, foregroundColor: Colors.white),
+            child: const Text('ĐẶT LẠI'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      final success = await context.read<DeckProvider>().resetDeckProgress(widget.deckId);
+      if (success && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Đã đặt lại tiến độ toàn bộ bộ đề!'), backgroundColor: Colors.green)
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final deckProvider = context.watch<DeckProvider>();
@@ -240,6 +275,10 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
     final currentDeck = matches.isNotEmpty ? matches.first : null;
     final deckOwner = currentDeck?.author?.username;
 
+    // Kiểm tra xem bộ đề có trong thư viện cá nhân không để hiển thị nút Reset
+    bool isInMyLibrary = deckProvider.myDecks.any((d) => d.id == widget.deckId) || 
+                         _findInSubDecks(deckProvider.myDecks, widget.deckId);
+
     return Scaffold(
       backgroundColor: const Color(0xFFF1F5F9),
       appBar: AppBar(
@@ -247,6 +286,28 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
         title: const Text('Tổng quan bộ đề', style: TextStyle(fontSize: 16, color: Colors.black87)),
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black87),
+        actions: [
+          if (isInMyLibrary)
+            PopupMenuButton<String>(
+              onSelected: (value) {
+                if (value == 'reset') {
+                  _showResetConfirmation(context);
+                }
+              },
+              itemBuilder: (context) => [
+                const PopupMenuItem(
+                  value: 'reset',
+                  child: Row(
+                    children: [
+                      Icon(Icons.refresh_rounded, color: Colors.orange, size: 20),
+                      SizedBox(width: 8),
+                      Text('Đặt lại tiến độ bộ đề'),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+        ],
       ),
       body: Column(
         children: [

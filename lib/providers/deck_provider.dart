@@ -368,12 +368,17 @@ class DeckProvider with ChangeNotifier {
     }
   }
 
-  Future<bool> resetCardProgress(int positionId) async {
+  Future<bool> resetDeckProgress(int deckId) async {
     try {
-      final response = await _dio.post('/decks/cards/$positionId/reset-progress');
-      return response.statusCode == 200 && response.data['success'] == true;
+      final response = await _dio.post('/decks/$deckId/reset-progress');
+      if (response.statusCode == 200 && response.data['success'] == true) {
+        fetchMyDecks();
+        fetchRecentDecks();
+        return true;
+      }
+      return false;
     } catch (e) {
-      debugPrint('Error resetting card progress: $e');
+      debugPrint('Error resetting deck progress: $e');
       return false;
     }
   }

@@ -11,6 +11,20 @@ class Flashcard {
     required this.cardData,
   });
 
+  Flashcard copyWith({
+    int? positionId,
+    int? colIndex,
+    StudyState? studyState,
+    List<CardCell>? cardData,
+  }) {
+    return Flashcard(
+      positionId: positionId ?? this.positionId,
+      colIndex: colIndex ?? this.colIndex,
+      studyState: studyState ?? this.studyState,
+      cardData: cardData ?? this.cardData,
+    );
+  }
+
   factory Flashcard.fromJson(Map<String, dynamic> json) {
     final List<dynamic> rawCardData = json['cardData'] ?? json['card_data'] ?? [];
     return Flashcard(
@@ -45,6 +59,22 @@ class StudyState {
     required this.reviewCount,
     required this.nextReview,
   });
+
+  StudyState copyWith({
+    String? status,
+    double? easeFactor,
+    int? interval,
+    int? reviewCount,
+    DateTime? nextReview,
+  }) {
+    return StudyState(
+      status: status ?? this.status,
+      easeFactor: easeFactor ?? this.easeFactor,
+      interval: interval ?? this.interval,
+      reviewCount: reviewCount ?? this.reviewCount,
+      nextReview: nextReview ?? this.nextReview,
+    );
+  }
 
   factory StudyState.fromJson(Map<String, dynamic> json) {
     return StudyState(

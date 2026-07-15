@@ -377,9 +377,10 @@ class _FlashcardLearningScreenState extends State<FlashcardLearningScreen> {
   }
 
   Future<void> _showCardSettings(Flashcard card) async {
+    final outerContext = context; // Giữ lại context của màn hình
     showDialog(
       context: context,
-      builder: (context) {
+      builder: (dialogContext) {
         return Dialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
           backgroundColor: Colors.white,
@@ -401,7 +402,7 @@ class _FlashcardLearningScreenState extends State<FlashcardLearningScreen> {
                   label: 'Chi tiết & Chỉnh sửa',
                   color: Colors.blue,
                   onTap: () {
-                    Navigator.pop(context);
+                    Navigator.pop(dialogContext);
                     _showCardEditor(card);
                   },
                 ),
@@ -410,7 +411,7 @@ class _FlashcardLearningScreenState extends State<FlashcardLearningScreen> {
                   label: 'Cấu hình mặt thẻ',
                   color: Colors.purple,
                   onTap: () {
-                    Navigator.pop(context);
+                    Navigator.pop(dialogContext);
                     _showRankSettings();
                   },
                 ),
@@ -419,26 +420,45 @@ class _FlashcardLearningScreenState extends State<FlashcardLearningScreen> {
                   label: 'Thứ tự học tập',
                   color: Colors.teal,
                   onTap: () {
-                    Navigator.pop(context);
+                    Navigator.pop(dialogContext);
                     _showOrderingSettings();
                   },
                 ),
                 _buildSettingsOption(
-                  icon: Icons.refresh_rounded,
-                  label: 'Đặt lại tiến độ',
-                  color: Colors.orange,
+                  icon: Icons.history_rounded,
+                  label: 'Đặt lại toàn bộ bộ đề',
+                  color: Colors.redAccent,
                   onTap: () async {
-                    Navigator.pop(context);
-                    final success = await context.read<DeckProvider>().resetCardProgress(card.positionId);
-                    if (mounted && success) {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Đã đặt lại tiến độ thẻ!')));
-                      _loadStudyData(); // Tải lại để cập nhật status
+                    Navigator.pop(dialogContext);
+                    final confirmed = await showDialog<bool>(
+                      context: outerContext,
+                      builder: (ctx) => AlertDialog(
+                        title: const Text('Đặt lại toàn bộ?'),
+                        content: const Text('Tất cả tiến độ trong bộ đề này sẽ bị xóa sạch. Bạn có chắc chắn không?'),
+                        actions: [
+                          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('HỦY')),
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx, true), 
+                            child: const Text('XÁC NHẬN', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+                          ),
+                        ],
+                      ),
+                    );
+
+                    if (confirmed == true && mounted) {
+                      final success = await outerContext.read<DeckProvider>().resetDeckProgress(widget.deckId);
+                      if (success && mounted) {
+                        ScaffoldMessenger.of(outerContext).showSnackBar(
+                          const SnackBar(content: Text('Đã đặt lại tiến độ toàn bộ bộ đề!'), backgroundColor: Colors.green)
+                        );
+                        _loadStudyData(); 
+                      }
                     }
                   },
                 ),
                 const SizedBox(height: 16),
                 TextButton(
-                  onPressed: () => Navigator.pop(context),
+                  onPressed: () => Navigator.pop(dialogContext),
                   child: const Text('ĐÓNG',
                       style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
                 ),
