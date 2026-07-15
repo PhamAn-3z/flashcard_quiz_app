@@ -1,0 +1,137 @@
+Nội dung chính của module là giúp sinh viên biết cách thiết kế giao diện Flutter có thể hiển thị tốt trên điện thoại, tablet, màn hình gập, desktop và web.
+Slide 1 – Module 6: Responsive UI & Adaptive Layouts
+Slide giới thiệu chủ đề của module: xây dựng giao diện Flutter có khả năng co giãn và thích ứng với nhiều kích thước màn hình khác nhau.
+Thông điệp chính cho sinh viên: một ứng dụng Flutter có thể chạy trên nhiều thiết bị, vì vậy giao diện không nên chỉ thiết kế cho một kích thước điện thoại cố định.
+Slide 2 – Contents
+Slide liệt kê các nội dung chính sẽ học:
+Responsive UI là gì, kích thước màn hình và vùng an toàn, cách dùng MediaQuery, LayoutBuilder, OrientationBuilder, các widget hỗ trợ responsive như Expanded, Wrap, Flexible, cách xây dựng màn hình Movie Genre responsive và cách kiểm thử giao diện trên nhiều thiết bị.
+Slide 3 – Why Responsive UI Matters
+Slide giải thích vì sao responsive UI quan trọng.
+Flutter có thể chạy trên nhiều loại thiết bị như điện thoại nhỏ, điện thoại lớn, tablet, foldable, desktop browser. Nếu không thiết kế responsive, ứng dụng dễ gặp lỗi tràn giao diện, widget lệch vị trí, chữ bị cắt hoặc trải nghiệm người dùng kém.
+Có thể nhấn mạnh với sinh viên: giao diện chạy đúng trên máy của lập trình viên chưa chắc đã chạy tốt trên thiết bị của người dùng.
+Slide 4 – Responsive vs Adaptive UI
+Slide phân biệt Responsive UI và Adaptive UI.
+Responsive UI là giao diện thay đổi theo không gian hiển thị hiện có. Ví dụ: từ Column chuyển thành Row, grid từ 2 cột thành 4 cột, padding tự thay đổi theo chiều rộng màn hình.
+Adaptive UI là giao diện thay đổi theo loại thiết bị hoặc nền tảng. Ví dụ: điện thoại dùng Bottom Navigation, tablet dùng NavigationRail, desktop dùng Sidebar.
+Điểm cần nhớ: responsive tập trung vào kích thước màn hình; adaptive tập trung vào loại thiết bị hoặc ngữ cảnh sử dụng.
+Slide 5 – MediaQuery: Getting Screen Size
+Slide giới thiệu MediaQuery.
+MediaQuery cho phép lấy thông tin về thiết bị và màn hình như chiều rộng, chiều cao, hướng xoay màn hình, vùng an toàn và mật độ điểm ảnh.
+Ví dụ:
+MediaQuery.of(context).size.width lấy chiều rộng màn hình.
+MediaQuery.of(context).size.height lấy chiều cao màn hình.
+Sinh viên cần hiểu rằng MediaQuery đọc kích thước màn hình hiện tại theo thời gian thực, vì vậy rất hữu ích khi viết logic responsive.
+Slide 6 – Using Breakpoints
+Slide giới thiệu khái niệm breakpoints.
+Breakpoint là các mốc kích thước dùng để quyết định nên hiển thị layout nào.
+Ví dụ:
+Dưới 400px: layout nhỏ.
+Từ 400 đến 800px: layout trung bình.
+Trên 800px: layout lớn.
+Trong Flutter, ta có thể dùng MediaQuery để lấy chiều rộng và dùng điều kiện if để chọn SmallLayout, MediumLayout hoặc LargeLayout.
+Ý nghĩa thực tế: breakpoint giúp ứng dụng tự chuyển giao diện khi chạy trên điện thoại, tablet hoặc desktop.
+Slide 7 – LayoutBuilder
+Slide giới thiệu LayoutBuilder.
+Khác với MediaQuery, LayoutBuilder không lấy kích thước toàn màn hình mà lấy ràng buộc kích thước từ widget cha. Điều này rất hữu ích khi chỉ muốn một thành phần nhỏ trong màn hình tự thay đổi theo vùng không gian mà nó được cấp.
+Ví dụ: nếu maxWidth > 500 thì hiển thị WideCard, ngược lại hiển thị NarrowCard.
+Điểm cần nhớ: MediaQuery phù hợp cho responsive cấp màn hình; LayoutBuilder phù hợp cho responsive cấp component.
+Slide 8 – OrientationBuilder
+Slide giới thiệu OrientationBuilder.
+OrientationBuilder giúp phát hiện màn hình đang ở chế độ dọc hay ngang.
+Ví dụ:
+Nếu Orientation.portrait, hiển thị danh sách một cột.
+Nếu Orientation.landscape, hiển thị layout hai cột.
+Sinh viên cần hiểu rằng khi người dùng xoay thiết bị, giao diện có thể cần thay đổi để tận dụng không gian tốt hơn.
+Slide 9 – Responsive Widgets Overview
+Slide giới thiệu các widget thường dùng để xây dựng giao diện responsive.
+Expanded: giúp widget con chiếm phần không gian còn lại và tránh overflow.
+Flexible: điều khiển cách widget con co giãn trong Row hoặc Column.
+Wrap: tự động xuống dòng khi không đủ chiều ngang.
+AspectRatio: giữ tỷ lệ hình ảnh hoặc khung nội dung.
+FractionallySizedBox: đặt kích thước theo phần trăm.
+GridView: hiển thị nội dung dạng lưới nhiều cột.
+Trong đó, Wrap đặc biệt quan trọng khi hiển thị danh sách chip, tag hoặc thể loại phim.
+Slide 10 – Responsive GridView
+Slide giới thiệu cách dùng GridView cho giao diện dạng lưới responsive.
+GridView.count() có thể thay đổi số cột dựa trên chiều rộng màn hình. Ví dụ, màn hình nhỏ hiển thị 2 cột, tablet hiển thị 3–4 cột, desktop hiển thị 5–6 cột.
+Ứng dụng thực tế: danh sách sản phẩm, danh sách phim, album ảnh, danh sách khóa học.
+Slide 11 – SafeArea & Modern Devices
+Slide giới thiệu SafeArea.
+Các thiết bị hiện đại có tai thỏ, Dynamic Island, màn hình cong hoặc vùng hệ thống che khuất nội dung. Nếu không dùng SafeArea, nội dung có thể bị che bởi camera, thanh trạng thái hoặc vùng điều hướng.
+SafeArea(child: ...) giúp đảm bảo nội dung nằm trong vùng hiển thị an toàn.
+Thông điệp cho sinh viên: khi thiết kế màn hình thật, đặc biệt là phần trên cùng hoặc dưới cùng, nên cân nhắc dùng SafeArea.
+Slide 12 – Real Case Study: Genre Screen
+Slide bắt đầu case study thực tế: xây dựng màn hình Movie Genre Screen.
+Màn hình này dùng để áp dụng các kiến thức đã học như search bar responsive, genre chips, dropdown sắp xếp và danh sách phim responsive.
+Đây là bài thực hành trọng tâm của Lab 6.
+Slide 13 – Responsive Search Bar
+Slide hướng dẫn thiết kế thanh tìm kiếm responsive.
+Các hành vi chính:
+Search bar chiếm toàn bộ chiều rộng phù hợp.
+Có padding hợp lý trên màn hình lớn.
+Được bọc trong SafeArea để không bị che bởi vùng hệ thống.
+Sinh viên cần chú ý rằng search bar thường nằm ở phần trên màn hình nên rất dễ bị ảnh hưởng bởi notch hoặc status bar.
+Slide 14 – Genre Chips: Collapsed State
+Slide giới thiệu cách hiển thị danh sách thể loại phim bằng chip ở trạng thái thu gọn.
+Widget quan trọng là Wrap. Khi không đủ chiều ngang, các chip sẽ tự động xuống dòng.
+Ví dụ: danh sách thể loại như Action, Comedy, Drama, Horror, Sci-Fi có thể tự sắp xếp linh hoạt theo kích thước màn hình.
+Slide 15 – Genre Chips: Expanded State
+Slide tiếp tục phần genre chips ở trạng thái mở rộng.
+Khi màn hình rộng hơn, một hàng có thể chứa nhiều chip hơn. Khi màn hình hẹp hơn, số chip mỗi hàng giảm xuống. Điều này được xử lý tự động bởi Wrap, không cần viết nhiều điều kiện phức tạp.
+Ý chính: Wrap là widget có tính responsive tự nhiên.
+Slide 16 – Sort Dropdown
+Slide giới thiệu menu sắp xếp bằng DropdownButton.
+Các lựa chọn sắp xếp gồm A–Z, Z–A, Rating và Year.
+Khi người dùng chọn một tiêu chí mới, biến selectedSort thay đổi và giao diện được cập nhật bằng setState().
+Dropdown thường tự thích ứng với vùng chứa, nhưng vẫn cần đặt trong layout hợp lý để tránh tràn giao diện.
+Slide 17 – Responsive Movie Card
+Slide hướng dẫn xây dựng card phim responsive.
+Dùng LayoutBuilder để kiểm tra chiều rộng của card. Nếu card đủ rộng, poster có thể hiển thị lớn hơn. Nếu không gian hẹp, poster nhỏ lại để tránh chiếm quá nhiều diện tích.
+Ví dụ: poster rộng 150px trên layout rộng, nhưng chỉ 100px trên layout hẹp.
+Điểm cần nhớ: responsive không chỉ áp dụng cho toàn màn hình mà còn áp dụng cho từng component.
+Slide 18 – Completed Responsive Screen
+Slide tổng kết màn hình responsive đã hoàn thành.
+Màn hình gồm:
+Thanh tìm kiếm responsive.
+Danh sách genre chips tự xuống dòng.
+Menu sắp xếp.
+Danh sách phim responsive.
+Đây là sản phẩm cuối cùng mà sinh viên cần đạt được trong Lab 6.
+Slide 19 – Lab 6.1: Responsive Hero Section
+Slide giao bài thực hành tạo responsive home banner.
+Sinh viên cần thiết kế banner có khả năng thay đổi chiều rộng, chiều cao, breakpoint và kích thước nút theo màn hình.
+Mục tiêu là giúp sinh viên luyện tập cách thiết kế phần nổi bật đầu trang, thường gặp trong app phim, thương mại điện tử hoặc trang chủ ứng dụng.
+Slide 20 – Lab 6.2: Rebuild the Genre Screen
+Slide yêu cầu sinh viên xây dựng lại màn hình Genre Screen dựa trên các hình minh họa trong bài.
+Các yêu cầu gồm:
+Search bar responsive.
+Genre chips dùng Wrap.
+Dropdown sắp xếp.
+Danh sách phim responsive.
+Kiểm thử trên kích thước điện thoại và tablet.
+Bài này giúp sinh viên tổng hợp gần như toàn bộ nội dung của module.
+Slide 21 – Lab 6.3: Tablet Layout Enhancement
+Slide yêu cầu sinh viên nâng cấp giao diện cho màn hình tablet.
+Với màn hình lớn hơn 800px, cần thêm sidebar filter, danh sách phim 2 cột và tăng khoảng cách giữa các thành phần.
+Ý nghĩa: sinh viên học cách không chỉ phóng to giao diện điện thoại lên tablet, mà phải tận dụng không gian lớn để tạo trải nghiệm tốt hơn.
+Slide 22 – Best Practices
+Slide tổng hợp các nguyên tắc tốt khi thiết kế responsive UI.
+Không nên lạm dụng giá trị cố định.
+Nên dùng component hiểu constraints.
+Nên dùng Wrap thay vì Row nếu danh sách item có thể dài.
+Cần kiểm thử thường xuyên trên nhiều kích thước màn hình.
+Nên dùng Flutter Inspector và Layout Explorer để kiểm tra lỗi layout.
+Đây là slide quan trọng vì giúp sinh viên hình thành thói quen thiết kế UI có khả năng chạy thực tế trên nhiều thiết bị.
+Slide 23 – Summary
+Slide tổng kết nội dung module.
+Sinh viên đã học:
+Sự khác nhau giữa responsive và adaptive.
+Cách dùng MediaQuery, LayoutBuilder, OrientationBuilder.
+Các widget hỗ trợ responsive.
+Cách xây dựng màn hình Genre responsive.
+Kỹ thuật dùng GridView và Wrap.
+Slide 24 – References
+Slide liệt kê tài liệu tham khảo:
+Mastering Flutter 2025 – Chapter 5, Chapter 6
+Tài liệu chính thức Flutter tại docs.flutter.dev
+DartPad tại dartpad.dev

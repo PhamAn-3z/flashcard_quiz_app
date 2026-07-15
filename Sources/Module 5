@@ -1,0 +1,168 @@
+Nội dung chính của module là giúp sinh viên hiểu cách chuyển màn hình, xử lý deep link và quản lý trạng thái trong ứng dụng Flutter.
+Slide 1 – Module 5: Navigation & State Management in Flutter
+Slide giới thiệu chủ đề của module: điều hướng giữa các màn hình và quản lý trạng thái trong Flutter. Đây là phần nối tiếp sau khi sinh viên đã học cách xây dựng giao diện ở Module 4.
+Slide 2 – Contents
+Slide trình bày các nội dung chính sẽ học:
+Sinh viên sẽ tìm hiểu cách Flutter quản lý việc di chuyển giữa các màn hình, học hai cách điều hướng là Navigator 1.0 và Navigator 2.0, đồng thời tìm hiểu các kỹ thuật quản lý trạng thái như setState, InheritedWidget và Provider.
+Slide 3 – What is Navigation?
+Slide giải thích khái niệm Navigation trong Flutter.
+Navigation là cơ chế giúp người dùng di chuyển giữa các màn hình trong ứng dụng. Flutter quản lý các màn hình theo dạng stack. Khi mở màn hình mới, màn hình đó được push vào stack. Khi quay lại, màn hình hiện tại được pop ra khỏi stack.
+Các hàm quan trọng gồm:
+push(): chuyển sang màn hình mới.
+pushNamed(): chuyển sang màn hình bằng tên route.
+pop(): quay lại màn hình trước đó.
+Slide 4 – Navigator 1.0 Flow
+Slide mô tả luồng hoạt động của Navigator 1.0.
+Ứng dụng bắt đầu ở màn hình đầu tiên. Khi người dùng chuyển sang màn hình mới, Flutter dùng push() để thêm màn hình đó vào stack. Khi người dùng bấm quay lại, Flutter dùng pop() để xóa màn hình hiện tại khỏi stack và trở về màn hình trước.
+Navigator 1.0 là cách điều hướng imperative, nghĩa là lập trình viên trực tiếp ra lệnh khi nào chuyển màn hình và chuyển như thế nào.
+Slide 5 – Routes in Flutter
+Slide giới thiệu khái niệm Route.
+Trong Flutter, một route thường tương ứng với một màn hình hoặc một trang trong ứng dụng. MaterialPageRoute là cách phổ biến để tạo route theo phong cách Material Design.
+Ví dụ: khi muốn chuyển từ màn hình hiện tại sang ProfilePage, ta dùng Navigator.push() kết hợp với MaterialPageRoute.
+Slide 6 – Navigator Class
+Slide liệt kê các phương thức quan trọng của lớp Navigator.
+push(): thêm màn hình mới.
+pop(): đóng màn hình hiện tại.
+pushReplacement(): thay thế màn hình hiện tại bằng màn hình mới.
+pushNamed(): chuyển màn hình bằng tên route.
+maybePop(): chỉ pop nếu có thể quay lại.
+Ý chính: mỗi route đại diện cho một trạng thái hiển thị của cây giao diện trong app.
+Slide 7 – Example: Basic Navigation
+Slide giải thích vì sao một số đoạn code Flutter đơn giản có thể không chạy được trong DartPad.
+Nguyên nhân thường gặp:
+Thiếu main().
+Thiếu runApp().
+Thiếu MaterialApp.
+Class màn hình thứ hai chưa được định nghĩa.
+Chỉ viết một widget riêng lẻ nên DartPad không có cấu trúc đầy đủ để chạy.
+Thông điệp cho sinh viên: khi chạy ví dụ Flutter trên DartPad, cần có cấu trúc chương trình hoàn chỉnh.
+Slide 8 – Example: Basic Navigation Code
+Slide trình bày ví dụ hoàn chỉnh về điều hướng cơ bản.
+Ứng dụng có hai màn hình: HomePage và SecondPage.
+Ở HomePage, khi bấm nút Go to Second Page, chương trình gọi Navigator.push() để mở SecondPage.
+Ở SecondPage, khi bấm nút Back, chương trình gọi Navigator.pop() để quay lại HomePage.
+Đây là ví dụ cơ bản nhất để hiểu cách chuyển qua lại giữa hai màn hình.
+Slide 9 – Named Routes
+Slide giới thiệu Named Routes.
+Named routes cho phép đặt tên cho từng màn hình, ví dụ /home, /login, /profile. Thay vì tạo MaterialPageRoute trực tiếp nhiều lần, ta khai báo trước một bảng ánh xạ giữa tên route và màn hình.
+Cách này giúp code dễ đọc, dễ quản lý và phù hợp với ứng dụng có nhiều màn hình.
+Slide 10 – Navigator 2.0 Architecture
+Slide giới thiệu Navigator 2.0.
+Khác với Navigator 1.0, Navigator 2.0 dùng cách tiếp cận declarative. Thay vì gọi push() hoặc pop() trực tiếp, lập trình viên mô tả trạng thái stack mong muốn, sau đó Flutter tự cập nhật giao diện tương ứng.
+Các thành phần chính gồm:
+RouterDelegate
+RouteInformationParser
+BackButtonDispatcher
+Navigator 2.0 phù hợp hơn với ứng dụng phức tạp, web app và deep linking.
+Slide 11 – Deep Linking Overview
+Slide giải thích khái niệm Deep Linking.
+Deep link cho phép người dùng mở trực tiếp một màn hình cụ thể trong app thông qua URL hoặc nguồn bên ngoài.
+Ví dụ: người dùng bấm vào một đường link phim, app có thể mở thẳng màn hình chi tiết phim thay vì chỉ mở trang chủ.
+Slide 12 – Setting Up Android Deep Links
+Slide hướng dẫn cấu hình deep link trên Android.
+Cần chỉnh file AndroidManifest.xml bằng cách thêm intent-filter. Android dùng intent filter để biết app nào sẽ xử lý một đường link cụ thể.
+Ví dụ scheme movieapps://movies?id=12 có thể mở trực tiếp màn hình chi tiết phim có ID là 12.
+Slide 13 – Setting Up iOS Deep Links Part 1
+Slide hướng dẫn bước đầu cấu hình deep link trên iOS.
+Sinh viên cần mở project trong Xcode, chọn target Runner, vào tab Signing & Capabilities, sau đó thêm capability Associated Domains.
+Đây là bước để iOS biết app có thể liên kết với một domain cụ thể.
+Slide 14 – Setting Up iOS Deep Links Part 2
+Slide tiếp tục phần cấu hình iOS deep link.
+Sinh viên thêm domain theo dạng:
+applinks:movieapps.com
+Ngoài ra, domain cần có file AASA ở đường dẫn /.well-known/apple-app-site-association.
+Ý chính: iOS cần xác minh domain để đảm bảo app có quyền mở link từ domain đó.
+Slide 15 – Editing Info.plist
+Slide giải thích cách thêm URL Types vào file Info.plist.
+Mục đích là định nghĩa custom scheme, ví dụ movieapps. Khi có link dạng movieapps://movies?id=1, iOS biết app nào sẽ được mở.
+Slide cũng nhấn mạnh sự khác nhau giữa custom app scheme và associated domain.
+Slide 16 – Info.plist XML Example
+Slide minh họa đoạn cấu hình XML trong Info.plist.
+Đoạn XML này giúp liên kết scheme movieapps với app. Khi người dùng mở link có dạng movieapps://..., hệ điều hành có thể gọi ứng dụng Flutter tương ứng.
+Slide 17 – Demo Start: Blank Scaffold
+Slide bắt đầu phần demo xây dựng màn hình chi tiết phim.
+Mục tiêu là tạo MovieDetailPage với cấu trúc cơ bản gồm Scaffold, AppBar và body.
+Ở bước đầu, nội dung màn hình chỉ hiển thị dòng “Coming soon...”. Đây là cách bắt đầu tốt trước khi thêm các thành phần giao diện phức tạp.
+Slide 18 – Step 1: Add Hero Banner
+Slide hướng dẫn thêm hero banner cho màn hình chi tiết phim.
+Dùng Stack để đặt ảnh poster và lớp phủ gradient chồng lên nhau. Image.network() hiển thị ảnh phim, còn Positioned và Container tạo hiệu ứng phủ ở phía dưới ảnh.
+Ý nghĩa: Stack cho phép các widget nằm chồng lên nhau, rất hữu ích khi thiết kế banner, poster hoặc giao diện có overlay.
+Slide 19 – Step 2: Add Title & Genres
+Slide hướng dẫn thêm tên phim và thể loại phim.
+Tên phim được hiển thị bằng Text với font lớn và in đậm. Các thể loại phim được hiển thị bằng Chip.
+Widget Wrap được dùng để các chip tự động xuống dòng nếu không đủ chiều ngang màn hình.
+Slide 20 – Step 3: Add Overview Text
+Slide hướng dẫn thêm phần mô tả phim.
+Nội dung mô tả được đặt trong Padding để dễ đọc hơn. Nếu đoạn mô tả dài, giao diện nên được đặt trong thành phần có thể cuộn.
+Thông điệp chính: nội dung văn bản cần có khoảng cách hợp lý để giao diện rõ ràng và chuyên nghiệp.
+Slide 21 – Step 4: Add Action Buttons
+Slide hướng dẫn thêm các nút thao tác như Favorite, Rate và Share.
+Các nút được đặt trong Row, dùng mainAxisAlignment: MainAxisAlignment.spaceEvenly để phân bố đều theo chiều ngang.
+Đây là mẫu giao diện phổ biến trong app xem phim, mạng xã hội hoặc thương mại điện tử.
+Slide 22 – Step 5: Add Trailer List
+Slide hướng dẫn thêm danh sách trailer.
+Dùng ListView.builder() để tạo danh sách động. Mỗi trailer được hiển thị bằng ListTile, có icon play ở đầu dòng và tiêu đề trailer.
+Ý chính: ListView.builder() phù hợp khi dữ liệu có thể thay đổi hoặc có nhiều phần tử.
+Slide 23 – Step 6: Final Layout
+Slide tổng hợp các thành phần đã học để tạo màn hình chi tiết phim hoàn chỉnh.
+Màn hình gồm banner, tiêu đề, thể loại, mô tả, các nút thao tác và danh sách trailer.
+Slide này cho thấy Flutter UI được xây dựng bằng cách kết hợp nhiều widget nhỏ thành một màn hình hoàn chỉnh.
+Slide 24 – Implementing Route Handling
+Slide giới thiệu cách xử lý route khi có deep link hoặc route động.
+onGenerateRoute được dùng để xử lý các route không khai báo cố định từ trước. Khi app nhận một đường dẫn hoặc tham số, onGenerateRoute có thể phân tích và quyết định màn hình nào cần mở.
+Ví dụ: nếu route chứa ID phim, app có thể mở màn hình chi tiết phim tương ứng.
+Slide 25 – Navigator 2.0 with State Integration
+Slide giải thích cách kết hợp Navigator 2.0 với state.
+RouterDelegate có thể lắng nghe thay đổi trạng thái và xây dựng lại danh sách pages. Khi state thay đổi, stack màn hình cũng thay đổi theo.
+Ý chính: trong Navigator 2.0, điều hướng không chỉ là bấm nút chuyển màn hình, mà còn phụ thuộc vào trạng thái của ứng dụng.
+Slide 26 – Managing App State
+Slide giới thiệu khái niệm App State.
+State quyết định người dùng đang nhìn thấy gì trên giao diện. Ví dụ, nếu loggedIn = false, người dùng thấy màn hình đăng nhập. Nếu loggedIn = true, người dùng thấy dashboard.
+Ví dụ trong slide dùng ChangeNotifier. Khi gọi login(), biến loggedIn đổi thành true và notifyListeners() báo cho các widget liên quan cập nhật lại.
+Slide 27 – Stateless vs Stateful Widgets
+Slide so sánh StatelessWidget và StatefulWidget.
+StatelessWidget dùng cho giao diện tĩnh, không tự thay đổi theo tương tác, ví dụ logo, tiêu đề, đoạn text cố định.
+StatefulWidget dùng cho giao diện có thay đổi, ví dụ form nhập liệu, counter, switch, slider.
+Điểm cần nhớ: StatefulWidget thường dùng setState() để yêu cầu Flutter rebuild lại giao diện.
+Slide 28 – setState() Usage & Lifting State Up
+Slide giải thích cách dùng setState() và khái niệm Lifting State Up.
+setState() dùng để thông báo rằng dữ liệu đã thay đổi và giao diện cần được vẽ lại.
+Lifting State Up nghĩa là đưa state lên widget cha chung để nhiều widget con có thể dùng chung dữ liệu. Cách này giúp tránh lặp logic và kiểm soát luồng dữ liệu tốt hơn.
+Slide cũng nhắc đến lifecycle methods như initState() và dispose().
+Slide 29 – InheritedWidget
+Slide giới thiệu InheritedWidget.
+InheritedWidget giúp truyền dữ liệu xuống các widget con trong cây widget mà không cần truyền qua từng constructor.
+Ví dụ: một widget cha chứa thông tin theme, ngôn ngữ hoặc dữ liệu người dùng; các widget con có thể truy cập dữ liệu đó thông qua BuildContext.
+Ý chính: Flutter có cơ chế phản ứng khi dữ liệu trong widget tree thay đổi.
+Slide 30 – Provider
+Slide giới thiệu Provider, một giải pháp quản lý state phổ biến trong Flutter.
+Provider giúp chia sẻ state và tự động cập nhật các widget đang lắng nghe state đó.
+Ví dụ:
+ChangeNotifierProvider tạo và cung cấp model.
+CounterModel chứa dữ liệu và hàm xử lý.
+notifyListeners() thông báo dữ liệu đã thay đổi.
+Consumer lắng nghe và rebuild phần UI cần cập nhật.
+Provider được xây dựng dựa trên InheritedWidget nhưng dễ dùng hơn và ít code lặp hơn.
+Slide 31 – Combining Navigation & State
+Slide giải thích cách kết hợp điều hướng và trạng thái.
+Ví dụ: nếu người dùng đã đăng nhập, app chuyển đến /dashboard; nếu chưa đăng nhập, app chuyển đến /login.
+Điều này rất quan trọng trong các ứng dụng thực tế như app thương mại điện tử, app học tập, app ngân hàng hoặc app đặt vé.
+Slide 32 – Practice Task
+Slide đưa ra bài thực hành: xây dựng một app phim nhỏ.
+Yêu cầu gồm:
+Deep link mở trực tiếp màn hình chi tiết phim.
+Dùng Provider để quản lý danh sách phim yêu thích.
+Nút Back hoạt động đúng khi điều hướng giữa các màn hình.
+Bài này giúp sinh viên kết hợp cả navigation và state management trong một ví dụ thực tế.
+Slide 33 – Summary
+Slide tổng kết nội dung module.
+Sinh viên đã học:
+Sự khác nhau giữa Navigator 1.0 và Navigator 2.0.
+Cách thiết lập deep link trên Android và iOS.
+Các mô hình quản lý state: setState, InheritedWidget, Provider.
+Cách kết hợp navigation và state để xây dựng luồng app thực tế.
+Slide 34 – References
+Slide liệt kê tài liệu tham khảo:
+Mastering Flutter 2025 – Chapter 6, Chapter 8
+Tài liệu chính thức Flutter tại docs.flutter.dev
+DartPad tại dartpad.dev
