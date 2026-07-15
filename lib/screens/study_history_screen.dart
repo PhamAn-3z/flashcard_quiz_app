@@ -101,21 +101,27 @@ class _StudyHistoryScreenState extends State<StudyHistoryScreen> {
   }
 
   Widget _buildHistoryItem(BuildContext context, Map<String, dynamic> item) {
-    // Xử lý dữ liệu lồng nhau từ Backend (Lý do: Supabase join)
-    final deckInfo = item['decks'] ?? {};
-    final authorInfo = deckInfo['author'] ?? {};
-
-    final String title = item['title'] ?? deckInfo['title'] ?? 'Bộ đề không tên';
-    final String authorName = authorInfo['username'] ?? 'Ẩn danh';
-    final dynamic deckId = item['deckId'] ?? item['deck_id'] ?? deckInfo['user_id'];
+    // Backend returns flattened data in getRecentlyViewedDecks
+    final String title = item['title'] ?? 'Bộ đề không tên';
+    final String authorName = item['authorName'] ?? 'Ẩn danh';
+    final dynamic deckId = item['deckId'];
     
-    final DateTime studiedAt = DateTime.tryParse(item['studied_at'] ?? '') ?? DateTime.now();
+    final DateTime studiedAt = DateTime.tryParse(item['lastStudiedAt'] ?? '') ?? DateTime.now();
     final dateFormat = DateFormat('dd/MM HH:mm');
     
-    final int learned = item['cards_learned'] ?? 0;
-    final int reviewed = item['cards_reviewed'] ?? 0;
-    final int duration = item['duration_seconds'] ?? 0;
+    // Last session stats
+    final lastSession = item['lastSession'] ?? {};
+    final int learned = lastSession['learned'] ?? 0;
+    final int reviewed = lastSession['reviewed'] ?? 0;
+    final int duration = lastSession['seconds'] ?? 0;
     
+    // Anki stats for navigation
+    final Map<String, dynamic> ankiStats = {
+      'newCount': item['newCount'] ?? 0,
+      'learningCount': item['learningCount'] ?? 0,
+      'dueCount': item['dueCount'] ?? 0,
+    };
+
     String durationText = '';
     if (duration < 60) {
       durationText = '$duration giây';
@@ -132,7 +138,7 @@ class _StudyHistoryScreenState extends State<StudyHistoryScreen> {
               builder: (_) => DeckOverviewScreen(
                 deckId: deckId,
                 title: title,
-                ankiStats: item['ankiStats'] ?? deckInfo['ankiStats'] ?? {'newCount': 0, 'learningCount': 0, 'dueCount': 0},
+                ankiStats: ankiStats,
               ),
             ),
           );

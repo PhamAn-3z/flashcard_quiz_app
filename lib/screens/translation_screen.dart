@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:dio/dio.dart';
 import '../utils/constants.dart';
 
 class TranslationScreen extends StatefulWidget {
@@ -10,23 +11,56 @@ class TranslationScreen extends StatefulWidget {
 
 class _TranslationScreenState extends State<TranslationScreen> {
   final TextEditingController _inputController = TextEditingController();
+  final Dio _dio = Dio(BaseOptions(baseUrl: ApiConstants.baseUrl));
+  
   String _result = "";
-  bool _isJpToVi = true; // Hướng dịch: JP -> VI hoặc VI -> JP
+  bool _isLoading = false;
+  bool _isJpToVi = true; 
 
-  void _translate() {
-    // Giả lập logic dịch thuật (Trong thực tế sẽ gọi API Google Translate hoặc tương tự)
-    setState(() {
-      if (_inputController.text.isEmpty) {
-        _result = "";
-        return;
+  Future<void> _translate() async {
+    final text = _inputController.text.trim();
+    if (text.isEmpty) {
+      setState(() => _result = "");
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      final response = await _dio.post(
+        '/translate',
+        data: {
+          'text': text,
+          'source_lang': _isJpToVi ? 'ja' : 'vi',
+          'target_lang': _isJpToVi ? 'vi' : 'ja',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        setState(() {
+          _result = response.data['translated_text'] ?? "Không có kết quả dịch.";
+        });
       }
-      _result = "Đây là kết quả dịch giả lập cho: \"${_inputController.text}\". \n\n(Bạn có thể tích hợp Google Translate API tại đây)";
-    });
+    } on DioException catch (e) {
+      setState(() {
+        _result = "Lỗi: ${e.response?.data['message'] ?? 'Không thể kết nối đến máy chủ dịch'}";
+      });
+    } catch (e) {
+      setState(() {
+        _result = "Đã xảy ra lỗi ngoài ý muốn: $e";
+      });
+    } finally {
+      setState(() => _isLoading = false);
+    }
   }
 
   void _swapLanguage() {
     setState(() {
       _isJpToVi = !_isJpToVi;
+      // Dịch lại ngay khi đổi ngôn ngữ nếu có text
+      if (_inputController.text.isNotEmpty) {
+        _translate();
+      }
     });
   }
 
@@ -35,7 +69,7 @@ class _TranslationScreenState extends State<TranslationScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: const Text('Dịch thuật NihonGo!', style: TextStyle(fontWeight: FontWeight.w800)),
+        title: const Text('Dịch thuật AI', style: TextStyle(fontWeight: FontWeight.w800)),
         centerTitle: true,
         backgroundColor: Colors.white,
         foregroundColor: AppColors.textPrimary,
@@ -89,20 +123,37 @@ class _TranslationScreenState extends State<TranslationScreen> {
                       hintText: _isJpToVi ? 'Nhập văn bản tiếng Nhật...' : 'Nhập văn bản tiếng Việt...',
                       border: InputBorder.none,
                     ),
-                    onChanged: (val) => _translate(),
                   ),
-                  if (_inputController.text.isNotEmpty)
-                    IconButton(
-                      onPressed: () => setState(() { _inputController.clear(); _result = ""; }),
-                      icon: const Icon(Icons.close_rounded, size: 20, color: Colors.grey),
-                    ),
+                  const SizedBox(height: 10),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      if (_inputController.text.isNotEmpty)
+                        IconButton(
+                          onPressed: () => setState(() { _inputController.clear(); _result = ""; }),
+                          icon: const Icon(Icons.close_rounded, size: 20, color: Colors.grey),
+                        ),
+                      ElevatedButton.icon(
+                        onPressed: _isLoading ? null : _translate,
+                        icon: _isLoading 
+                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          : const Icon(Icons.translate_rounded, size: 18),
+                        label: const Text('DỊCH NGAY'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
             const SizedBox(height: 24),
 
             // Kết quả dịch
-            if (_result.isNotEmpty)
+            if (_result.isNotEmpty || _isLoading)
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(24),
@@ -120,30 +171,19 @@ class _TranslationScreenState extends State<TranslationScreen> {
                   children: [
                     const Row(
                       children: [
-                        Icon(Icons.translate_rounded, color: Colors.white70, size: 16),
+                        Icon(Icons.auto_awesome_rounded, color: Colors.white70, size: 16),
                         SizedBox(width: 8),
-                        Text('BẢN DỊCH', style: TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                        Text('BẢN DỊCH AI', style: TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1)),
                       ],
                     ),
                     const SizedBox(height: 12),
-                    Text(
-                      _result,
-                      style: const TextStyle(color: Colors.white, fontSize: 16, height: 1.5, fontWeight: FontWeight.w500),
-                    ),
-                    const SizedBox(height: 20),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        IconButton(
-                          onPressed: () {}, // Logic copy
-                          icon: const Icon(Icons.copy_rounded, color: Colors.white70, size: 20),
-                        ),
-                        IconButton(
-                          onPressed: () {}, // Logic phát âm
-                          icon: const Icon(Icons.volume_up_rounded, color: Colors.white70, size: 20),
-                        ),
-                      ],
-                    )
+                    if (_isLoading)
+                      const Center(child: CircularProgressIndicator(color: Colors.white70))
+                    else
+                      Text(
+                        _result,
+                        style: const TextStyle(color: Colors.white, fontSize: 16, height: 1.5, fontWeight: FontWeight.w500),
+                      ),
                   ],
                 ),
               ),
