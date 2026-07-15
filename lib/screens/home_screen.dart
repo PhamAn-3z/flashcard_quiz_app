@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../providers/auth_provider.dart';
 import '../providers/deck_provider.dart';
 import '../providers/notification_provider.dart';
@@ -98,6 +99,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   _buildReviewReminders(context),
                   
                   _buildRecentStudyHistory(context),
+                  const SizedBox(height: 24),
+                  _buildFooter(context),
                   const SizedBox(height: 40),
                 ],
               ),
@@ -106,6 +109,158 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
     );
+  }
+
+  Widget _buildFooter(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(32),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 20,
+            offset: const Offset(0, -5),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Logo & Slogan
+          const Text('NihonGo!', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: AppColors.primary)),
+          const Text('Học tiếng Nhật hiệu quả mỗi ngày', style: TextStyle(fontSize: 12, color: Colors.grey)),
+          const SizedBox(height: 24),
+
+          // Địa chỉ
+          _buildFooterInfoItem(
+            Icons.location_on_rounded, 
+            'Trụ sở Hà Nội:', 
+            'Tầng 5, Tòa nhà Ladeco, 266 Đội Cấn, Ba Đình',
+            onTap: () => _launchURL('https://www.google.com/maps/search/?api=1&query=266+Doi+Can+Ba+Dinh+Ha+Noi'),
+          ),
+          const SizedBox(height: 16),
+          _buildFooterInfoItem(
+            Icons.location_on_rounded, 
+            'Chi nhánh TP. HCM:', 
+            '135/21 Nguyễn Cửu Vân, P.17, Q. Bình Thạnh',
+            onTap: () => _launchURL('https://www.google.com/maps/search/?api=1&query=135/21+Nguyen+Cuu+Van+Binh+Thanh+HCM'),
+          ),
+          
+          const Divider(height: 40, thickness: 1, color: Color(0xFFF1F5F9)),
+
+          // Liên hệ
+          Row(
+            children: [
+              Expanded(
+                child: _buildFooterInfoItem(
+                  Icons.phone_iphone_rounded, 
+                  'Hotline:', 
+                  '0822.858.489',
+                  onTap: () => _launchURL('tel:0822858489'),
+                ),
+              ),
+              Expanded(
+                child: _buildFooterInfoItem(
+                  Icons.mail_outline_rounded, 
+                  'Email:', 
+                  'anphamgm2k5@gmail.com',
+                  onTap: () => _launchURL('mailto:anphamgm2k5@gmail.com'),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _buildFooterInfoItem(
+            Icons.access_time_rounded, 
+            'Giờ làm việc:', 
+            'Thứ 2 - Thứ 7 (08:30 - 17:30)',
+          ),
+
+          const SizedBox(height: 32),
+          
+          // Social Media & Links
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  _buildSocialIcon(Icons.facebook, Colors.blue.shade700),
+                  const SizedBox(width: 12),
+                  _buildSocialIcon(Icons.play_circle_fill_rounded, Colors.red.shade600),
+                  const SizedBox(width: 12),
+                  _buildSocialIcon(Icons.language_rounded, Colors.teal),
+                ],
+              ),
+              TextButton(
+                onPressed: () {},
+                child: const Text('Điều khoản & Bảo mật', style: TextStyle(fontSize: 12, color: Colors.grey, decoration: TextDecoration.underline)),
+              ),
+            ],
+          ),
+          
+          const SizedBox(height: 24),
+          const Center(
+            child: Text(
+              '© 2024 NihonGo Team. Made with ❤️ for Learners.',
+              style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w500),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFooterInfoItem(IconData icon, String label, String value, {VoidCallback? onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.05), borderRadius: BorderRadius.circular(10)),
+            child: Icon(icon, size: 18, color: AppColors.primary),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey)),
+                Text(value, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: onTap != null ? AppColors.primary : AppColors.textPrimary)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSocialIcon(IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        shape: BoxShape.circle,
+      ),
+      child: Icon(icon, size: 20, color: color),
+    );
+  }
+
+  Future<void> _launchURL(String url) async {
+    final Uri uri = Uri.parse(url);
+    try {
+      if (url.startsWith('mailto:') || url.startsWith('tel:')) {
+        await launchUrl(uri);
+      } else if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
+    } catch (e) {
+      debugPrint('Could not launch $url: $e');
+    }
   }
 
   Widget _buildMaziiHeader(BuildContext context) {
