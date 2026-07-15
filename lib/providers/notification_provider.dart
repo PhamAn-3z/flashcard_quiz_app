@@ -94,23 +94,20 @@ class NotificationProvider with ChangeNotifier {
     bool? enabled,
     String? time,
     List<int>? days,
-    bool? subNotify,
   }) async {
     if (_token == null) return false;
 
     try {
-      final response = await _dio.put('/notification-settings', data: {
-        'study_reminder_enabled': enabled ?? _studyReminderEnabled,
-        'study_reminder_time': time ?? _studyReminderTime,
-        'study_reminder_days': days ?? _studyReminderDays,
-        'sub_expiry_notify': subNotify ?? _subExpiryNotify,
+      final response = await _dio.put('/notification-settings/study-reminder', data: {
+        'is_enabled': enabled ?? _studyReminderEnabled,
+        'time': time ?? _studyReminderTime,
+        'days': days ?? _studyReminderDays,
       });
 
       if (response.statusCode == 200) {
         if (enabled != null) _studyReminderEnabled = enabled;
         if (time != null) _studyReminderTime = time;
         if (days != null) _studyReminderDays = days;
-        if (subNotify != null) _subExpiryNotify = subNotify;
         notifyListeners();
         return true;
       }
