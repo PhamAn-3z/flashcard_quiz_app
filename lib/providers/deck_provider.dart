@@ -460,6 +460,7 @@ class DeckProvider with ChangeNotifier {
     required int cardsLearned,
     required int cardsReviewed,
     required int durationSeconds,
+    List<Map<String, dynamic>>? cardRatings,
   }) async {
     try {
       final response = await _dio.post(
@@ -469,7 +470,7 @@ class DeckProvider with ChangeNotifier {
           "cards_learned": cardsLearned,
           "cards_reviewed": cardsReviewed,
           "duration_seconds": durationSeconds,
-          "card_ratings": _sessionRatings,
+          "card_ratings": cardRatings ?? _sessionRatings,
         },
       );
 

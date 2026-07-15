@@ -41,6 +41,7 @@ class _FlashcardLearningScreenState extends State<FlashcardLearningScreen> {
   final Set<int> _answeredCardIds = {};
   int _cardsLearnedCount = 0;
   int _cardsReviewedCount = 0;
+  final List<Map<String, dynamic>> _sessionRatings = []; // Thu thập đánh giá thẻ
   final AudioPlayer _audioPlayer = AudioPlayer();
   final AudioRecorder _audioRecorder = AudioRecorder();
   final CloudinaryService _cloudinaryService = CloudinaryService();
@@ -259,12 +260,7 @@ class _FlashcardLearningScreenState extends State<FlashcardLearningScreen> {
 
     final currentCard = _studyData!.flashcards[_currentIndex];
 
-    // 1. Call API in background
-    context
-        .read<DeckProvider>()
-        .updateStudyProgress(currentCard.positionId, rating);
-
-    // 2. Phân loại Thẻ mới vs Ôn tập (Dựa trên trạng thái TRƯỚC khi học)
+    // 1. Phân loại Thẻ mới vs Ôn tập (Dựa trên trạng thái TRƯỚC khi học)
     if (!_answeredCardIds.contains(currentCard.positionId)) {
       final status = currentCard.studyState.status.toUpperCase();
       if (status == 'NEW') {
@@ -274,6 +270,14 @@ class _FlashcardLearningScreenState extends State<FlashcardLearningScreen> {
       }
       _answeredCardIds.add(currentCard.positionId);
     }
+
+    // 2. Lưu lại đánh giá cho API session-end
+    _sessionRatings.add({
+      "position_id": currentCard.positionId,
+      "rating": rating.toUpperCase() == 'HARD' 
+          ? 'AGAIN' 
+          : (rating.toUpperCase() == 'NORMAL' ? 'GOOD' : 'EASY')
+    });
 
     if (_currentIndex < _studyData!.flashcards.length - 1) {
       setState(() {
@@ -287,12 +291,13 @@ class _FlashcardLearningScreenState extends State<FlashcardLearningScreen> {
 
       final int duration = DateTime.now().difference(_startTime).inSeconds;
       
-      // 4. Gọi API session-end với các thông số đã phân loại
+      // 3. Gọi API session-end với các thông số đã phân loại chính xác
       final result = await context.read<DeckProvider>().endStudySession(
             deckId: widget.deckId,
             cardsLearned: _cardsLearnedCount,
             cardsReviewed: _cardsReviewedCount,
             durationSeconds: duration,
+            cardRatings: _sessionRatings,
           );
 
       if (result != null && mounted) {
@@ -316,12 +321,13 @@ class _FlashcardLearningScreenState extends State<FlashcardLearningScreen> {
 
     setState(() => _isSaving = true);
     final int duration = DateTime.now().difference(_startTime).inSeconds;
-    // Gửi log những gì đã học được
+    // Gửi log những gì đã học được kèm danh sách đánh giá thẻ
     await context.read<DeckProvider>().endStudySession(
           deckId: widget.deckId,
           cardsLearned: _cardsLearnedCount,
           cardsReviewed: _cardsReviewedCount,
           durationSeconds: duration,
+          cardRatings: _sessionRatings,
         );
     if (mounted) {
       context.read<AuthProvider>().refreshProfile();
