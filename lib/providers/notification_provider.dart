@@ -141,7 +141,7 @@ class NotificationProvider with ChangeNotifier {
 
   Future<void> markAsRead(String id) async {
     try {
-      await _dio.patch('/notifications/$id/read');
+      await _dio.put('/notifications/$id/read');
       final index = _notifications.indexWhere((n) => n.id == id);
       if (index != -1) {
         _notifications[index].isRead = true;
@@ -154,7 +154,7 @@ class NotificationProvider with ChangeNotifier {
 
   Future<void> markAllAsRead() async {
     try {
-      await _dio.post('/notifications/read-all');
+      await _dio.put('/notifications/read-all');
       for (var n in _notifications) {
         n.isRead = true;
       }

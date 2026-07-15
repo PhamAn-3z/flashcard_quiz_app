@@ -178,8 +178,9 @@ class ProfileScreen extends StatelessWidget {
                     width: double.infinity,
                     child: OutlinedButton.icon(
                       onPressed: () {
+                        // Quay về màn hình gốc trước khi đăng xuất để xóa stack
+                        Navigator.of(context).popUntil((route) => route.isFirst);
                         auth.logout();
-                        // Consumer trong main.dart sẽ tự động đưa user về LoginScreen
                       },
                       icon: const Icon(Icons.logout_rounded),
                       label: const Text('Đăng xuất tài khoản', style: TextStyle(fontWeight: FontWeight.w700)),

@@ -37,14 +37,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     if (_formKey.currentState!.validate()) {
       final auth = context.read<AuthProvider>();
       
-      bool success = await auth.updateProfile(
+      // Nhận kết quả dưới dạng String? (null là thành công, có chữ là lỗi)
+      String? errorMessage = await auth.updateProfile(
         fullName: _nameController.text,
         phoneNumber: _phoneController.text,
       );
 
       if (!mounted) return;
 
-      if (success) {
+      if (errorMessage == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: const Text('Cập nhật thông tin thành công!'),
@@ -57,7 +58,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Cập nhật thông tin thất bại!'),
+            content: Text(errorMessage), // Hiển thị lỗi chi tiết từ Backend
             backgroundColor: AppColors.error,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),

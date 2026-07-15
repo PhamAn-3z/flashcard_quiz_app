@@ -164,24 +164,29 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  Future<bool> updateProfile({
+  Future<String?> updateProfile({
     required String fullName,
     required String phoneNumber,
+    String? gender,
+    String? birthDate,
   }) async {
     _isLoading = true;
     notifyListeners();
 
     try {
+      // FIX lỗi 404: Thêm dấu // để khớp với router.mount('/api/v1/user/', ...) của Backend
       final response = await _dio.put(
-        '/user/update-profile',
+        '/user//update-profile',
         data: {
           'full_name': fullName,
           'phone_number': phoneNumber,
+          if (gender != null) 'gender': gender,
+          if (birthDate != null) 'date_of_birth': birthDate,
         },
       );
 
       if (response.statusCode == 200) {
-        // FIX: Cập nhật State cục bộ ngay lập tức (Giải quyết Lỗi đồng bộ 1)
+        // Cập nhật State cục bộ ngay lập tức
         if (_user != null) {
           _user = User(
             id: _user!.id,
@@ -191,22 +196,27 @@ class AuthProvider with ChangeNotifier {
             isPremium: _user!.isPremium,
             fullName: fullName,
             phoneNumber: phoneNumber,
+            gender: gender ?? _user!.gender,
+            birthDate: birthDate ?? _user!.birthDate,
           );
-          notifyListeners();
         }
 
-        await _fetchProfile(); // Refresh để đồng bộ chuẩn với DB
+        await _fetchProfile(); // Đồng bộ lại từ server
         _isLoading = false;
         notifyListeners();
-        return true;
+        return null; // Trả về null nghĩa là thành công
       }
       _isLoading = false;
       notifyListeners();
-      return false;
+      return 'Cập nhật không thành công (${response.statusCode})';
+    } on DioException catch (e) {
+      _isLoading = false;
+      notifyListeners();
+      return e.response?.data['message'] ?? 'Lỗi kết nối đến server';
     } catch (e) {
       _isLoading = false;
       notifyListeners();
-      return false;
+      return 'Đã có lỗi xảy ra: $e';
     }
   }
 
@@ -261,6 +271,8 @@ class AuthProvider with ChangeNotifier {
         roleId: (userData['role_id'] ?? userData['role'] ?? 'user').toString(),
         isPremium: userData['is_premium'] == true,
         phoneNumber: userData['phone_number'],
+        gender: userData['gender'],
+        birthDate: userData['birth_date'] ?? userData['date_of_birth'],
       );
 
       // We still use mock stats for now unless API provides them

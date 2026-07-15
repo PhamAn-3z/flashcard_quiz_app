@@ -32,23 +32,17 @@ class _LoginScreenState extends State<LoginScreen> {
       if (result == null) {
         if (!mounted) return;
         
-        // KIỂM TRA ROLE_ID ĐỂ ĐIỀU HƯỚNG
-        if (auth.user?.roleId == '3') {
-          // Nếu là Admin, dẫn vào trang Admin
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Chào mừng Admin quay trở lại!')),
-          );
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => const AdminDashboardScreen()),
-          );
-        } else {
-          // Nếu là User thường, dẫn vào trang Main Navigation
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => const MainNavigation()),
-          );
-        }
+        // KIỂM TRA ROLE_ID ĐỂ HIỂN THỊ THÔNG BÁO
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(auth.user?.roleId == '3' ? 'Chào mừng Admin quay trở lại!' : 'Đăng nhập thành công!'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+        
+        // KHÔNG CẦN Navigator.push ở đây.
+        // AuthProvider.login đã gọi notifyListeners(), 
+        // Consumer trong main.dart sẽ tự động nhận biết và chuyển màn hình.
       } else if (result == 'unverified') {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(

@@ -24,7 +24,11 @@ class AdminDashboardScreen extends StatelessWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.logout_rounded),
-            onPressed: () => auth.logout(),
+            onPressed: () {
+              // Quay về màn hình gốc trước khi đăng xuất để xóa stack
+              Navigator.of(context).popUntil((route) => route.isFirst);
+              auth.logout();
+            },
           )
         ],
       ),
