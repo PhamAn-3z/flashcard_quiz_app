@@ -14,6 +14,7 @@ import 'deck_list_screen.dart';
 import 'flashcard_learning_screen.dart';
 import 'deck_overview_screen.dart';
 import 'explore_decks_screen.dart';
+import 'privacy_policy_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -183,19 +184,10 @@ class _HomeScreenState extends State<HomeScreen> {
           
           // Social Media & Links
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              Row(
-                children: [
-                  _buildSocialIcon(Icons.facebook, Colors.blue.shade700),
-                  const SizedBox(width: 12),
-                  _buildSocialIcon(Icons.play_circle_fill_rounded, Colors.red.shade600),
-                  const SizedBox(width: 12),
-                  _buildSocialIcon(Icons.language_rounded, Colors.teal),
-                ],
-              ),
               TextButton(
-                onPressed: () {},
+                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PrivacyPolicyScreen())),
                 child: const Text('Điều khoản & Bảo mật', style: TextStyle(fontSize: 12, color: Colors.grey, decoration: TextDecoration.underline)),
               ),
             ],
@@ -236,17 +228,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildSocialIcon(IconData icon, Color color) {
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        shape: BoxShape.circle,
-      ),
-      child: Icon(icon, size: 20, color: color),
     );
   }
 
