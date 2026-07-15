@@ -71,19 +71,6 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                       _buildDaysPicker(notifyProvider),
                     ]
                   ]),
-                  const SizedBox(height: 32),
-                  _buildSectionHeader("THÀNH VIÊN"),
-                  const SizedBox(height: 12),
-                  _buildSettingsGroup([
-                    _buildModernSwitch(
-                      title: 'Hết hạn gói cước',
-                      subtitle: 'Thông báo khi gói Membership sắp hết hạn',
-                      value: notifyProvider.subExpiryNotify,
-                      onChanged: (val) => notifyProvider.updateSettings(subNotify: val),
-                      icon: Icons.card_membership_rounded,
-                      accentColor: Colors.orange,
-                    ),
-                  ]),
                   const SizedBox(height: 40),
                   SizedBox(
                     width: double.infinity,

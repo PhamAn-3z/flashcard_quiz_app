@@ -37,10 +37,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     if (_formKey.currentState!.validate()) {
       final auth = context.read<AuthProvider>();
       
-      // Nhận kết quả dưới dạng String? (null là thành công, có chữ là lỗi)
+      // Gửi đầy đủ thông tin để tránh bị ghi đè dữ liệu cũ trên Backend
       String? errorMessage = await auth.updateProfile(
         fullName: _nameController.text,
         phoneNumber: _phoneController.text,
+        gender: auth.user?.gender,
+        birthDate: auth.user?.birthDate,
       );
 
       if (!mounted) return;

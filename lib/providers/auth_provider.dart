@@ -174,9 +174,9 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      // FIX lỗi 404: Thêm dấu // để khớp với router.mount('/api/v1/user/', ...) của Backend
+      // Gọi đúng endpoint Backend: PUT /api/v1/user/profile
       final response = await _dio.put(
-        '/user//update-profile',
+        '/user/profile',
         data: {
           'full_name': fullName,
           'phone_number': phoneNumber,
