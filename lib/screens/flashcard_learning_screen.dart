@@ -29,7 +29,7 @@ class FlashcardLearningScreen extends StatefulWidget {
   State<FlashcardLearningScreen> createState() => _FlashcardLearningScreenState();
 }
 
-class _FlashcardLearningScreenState extends State<FlashcardLearningScreen> {
+class _FlashcardLearningScreenState extends State<FlashcardLearningScreen> with SingleTickerProviderStateMixin {
   DeckStudyData? _studyData;
   int _currentIndex = 0;
   int? _activeGroupIdForPopup;
@@ -49,6 +49,9 @@ class _FlashcardLearningScreenState extends State<FlashcardLearningScreen> {
   String? _currentlyPlayingUrl;
   late DateTime _startTime;
   final Map<String, String> _localAudioPaths = {}; // Lưu trữ đường dẫn file âm thanh đã tải về
+
+  late AnimationController _flipController;
+  late Animation<double> _flipAnimation;
   
   // Sử dụng Notifier để cập nhật tiến trình âm thanh chuyên nghiệp và an toàn
   final ValueNotifier<Duration> _audioPositionNotifier = ValueNotifier(Duration.zero);
@@ -65,6 +68,15 @@ class _FlashcardLearningScreenState extends State<FlashcardLearningScreen> {
     _loadStudyData();
     _initAudioListeners();
     _initAudioContext();
+
+    _flipController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    );
+    _flipAnimation = Tween<double>(begin: 0, end: 1).animate(CurvedAnimation(
+      parent: _flipController,
+      curve: Curves.easeInOut,
+    ));
   }
 
   void _initAudioContext() {
@@ -110,6 +122,7 @@ class _FlashcardLearningScreenState extends State<FlashcardLearningScreen> {
     _audioPositionNotifier.dispose();
     _audioDurationNotifier.dispose();
     _playingUrlNotifier.dispose();
+    _flipController.dispose();
     super.dispose();
   }
 
@@ -250,6 +263,11 @@ class _FlashcardLearningScreenState extends State<FlashcardLearningScreen> {
   }
 
   void _flipCard() {
+    if (_isCardFlipped) {
+      _flipController.reverse();
+    } else {
+      _flipController.forward();
+    }
     setState(() {
       _isCardFlipped = !_isCardFlipped;
     });
@@ -280,6 +298,9 @@ class _FlashcardLearningScreenState extends State<FlashcardLearningScreen> {
     });
 
     if (_currentIndex < _studyData!.flashcards.length - 1) {
+      if (_isCardFlipped) {
+        _flipController.reverse();
+      }
       setState(() {
         _currentIndex++;
         _isCardFlipped = false;
@@ -368,6 +389,9 @@ class _FlashcardLearningScreenState extends State<FlashcardLearningScreen> {
 
   void _previousCard() {
     if (_currentIndex > 0) {
+      if (_isCardFlipped) {
+        _flipController.reverse();
+      }
       setState(() {
         _currentIndex--;
         _isCardFlipped = false;
@@ -627,6 +651,10 @@ class _FlashcardLearningScreenState extends State<FlashcardLearningScreen> {
     if (_studyData == null) return;
     
     String label = 'Thứ tự mặc định';
+    
+    if (_isCardFlipped) {
+      _flipController.reverse();
+    }
     
     setState(() {
       if (type == 'SHUFFLE') {
@@ -1415,6 +1443,15 @@ class _FlashcardLearningScreenState extends State<FlashcardLearningScreen> {
       orElse: () => currentCard.cardData[0],
     );
 
+    final cellFront = currentCard.cardData.firstWhere(
+      (c) => c.groupId == headerFront.groupId,
+      orElse: () => currentCard.cardData[0],
+    );
+    final cellBack = currentCard.cardData.firstWhere(
+      (c) => c.groupId == headerBack.groupId,
+      orElse: () => currentCard.cardData[0],
+    );
+
     if (_isFinished) {
       return _buildSummaryScreen();
     }
@@ -1462,87 +1499,26 @@ class _FlashcardLearningScreenState extends State<FlashcardLearningScreen> {
                   alignment: Alignment.center,
                   children: [
                     // 1. Tầng Nền chính (Main Flashcard Canvas)
-                    GestureDetector(
-                      onTap: _flipCard,
-                      child: Container(
-                        width: MediaQuery.of(context).size.width * 0.82,
-                        height: MediaQuery.of(context).size.height * 0.5,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(32),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.05),
-                              blurRadius: 20,
-                              offset: const Offset(0, 10),
-                            )
-                          ],
-                        ),
-                        child: Stack(
-                          children: [
-                            // Nội dung Text chính
-                            Center(
-                              child: Padding(
-                                padding: const EdgeInsets.all(24.0),
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    // Hiển thị Ảnh nếu có
-                                    if (activeCell.imageUrl != null)
-                                      Container(
-                                        margin: const EdgeInsets.only(bottom: 20),
-                                        height: 120,
-                                        decoration: BoxDecoration(
-                                          borderRadius: BorderRadius.circular(16),
-                                          image: DecorationImage(
-                                            image: NetworkImage(activeCell.imageUrl!),
-                                            fit: BoxFit.contain,
-                                          ),
-                                        ),
-                                      ),
-                                    Text(
-                                      activeCell.text,
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(
-                                        fontSize: _isCardFlipped ? 32 : 50,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ],
+                    AnimatedBuilder(
+                      animation: _flipAnimation,
+                      builder: (context, child) {
+                        final angle = _flipAnimation.value * 3.1415926535897932;
+                        final isFront = angle < 1.5707963267948966;
+                        
+                        return Transform(
+                          transform: Matrix4.identity()
+                            ..setEntry(3, 2, 0.001)
+                            ..rotateY(angle),
+                          alignment: Alignment.center,
+                          child: isFront
+                              ? _buildCardContent(currentCard, headerFront, cellFront, false)
+                              : Transform(
+                                  transform: Matrix4.identity()..rotateY(3.1415926535897932),
+                                  alignment: Alignment.center,
+                                  child: _buildCardContent(currentCard, headerBack, cellBack, true),
                                 ),
-                              ),
-                            ),
-                            // Nút cài đặt ở góc trái
-                            Positioned(
-                              top: 8,
-                              left: 8,
-                              child: IconButton(
-                                icon: const Icon(Icons.settings_outlined,
-                                    color: Colors.black26, size: 22),
-                                onPressed: () => _showCardSettings(currentCard),
-                              ),
-                            ),
-                            // Nút phát âm thanh ở góc nếu có
-                            if (activeCell.audioUrl != null)
-                              Positioned(
-                                top: 8,
-                                right: 8,
-                                child: ValueListenableBuilder<String?>(
-                                  valueListenable: _playingUrlNotifier,
-                                  builder: (context, playingUrl, _) {
-                                    final bool isPlaying = playingUrl == activeCell.audioUrl;
-                                    return IconButton(
-                                      icon: isPlaying
-                                          ? const Icon(Icons.stop_circle_rounded, color: AppColors.primary, size: 32)
-                                          : const Icon(Icons.volume_up_rounded, color: AppColors.primary, size: 28),
-                                      onPressed: () => _playAudio(activeCell.audioUrl!),
-                                    );
-                                  },
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
+                        );
+                      },
                     ),
                     
                     // 2. Tầng Cột Bong Bóng Mép Phải (Edge Bubbles Sidebar - Pinned to Screen Edge)
@@ -1599,6 +1575,94 @@ class _FlashcardLearningScreenState extends State<FlashcardLearningScreen> {
                 ],
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCardContent(Flashcard card, PersonalizedHeader header, CardCell cell, bool isBack) {
+    return GestureDetector(
+      onTap: _flipCard,
+      child: Container(
+        width: MediaQuery.of(context).size.width * 0.82,
+        height: MediaQuery.of(context).size.height * 0.5,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(32),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 20,
+              offset: const Offset(0, 10),
+            )
+          ],
+        ),
+        child: Stack(
+          children: [
+            // Nội dung Text chính
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: (cell.text.trim().isEmpty && cell.imageUrl == null)
+                    ? _buildEmptyCardPlaceholder()
+                    : Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          // Hiển thị Ảnh nếu có
+                          if (cell.imageUrl != null)
+                            Container(
+                              margin: const EdgeInsets.only(bottom: 20),
+                              height: 120,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(16),
+                                image: DecorationImage(
+                                  image: NetworkImage(cell.imageUrl!),
+                                  fit: BoxFit.contain,
+                                ),
+                              ),
+                            ),
+                          if (cell.text.trim().isNotEmpty)
+                            Text(
+                              cell.text,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: isBack ? 32 : 50,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                        ],
+                      ),
+              ),
+            ),
+            // Nút cài đặt ở góc trái
+            Positioned(
+              top: 8,
+              left: 8,
+              child: IconButton(
+                icon: const Icon(Icons.settings_outlined,
+                    color: Colors.black26, size: 22),
+                onPressed: () => _showCardSettings(card),
+              ),
+            ),
+            // Nút phát âm thanh ở góc nếu có
+            if (cell.audioUrl != null)
+              Positioned(
+                top: 8,
+                right: 8,
+                child: ValueListenableBuilder<String?>(
+                  valueListenable: _playingUrlNotifier,
+                  builder: (context, playingUrl, _) {
+                    final bool isPlaying = playingUrl == cell.audioUrl;
+                    return IconButton(
+                      icon: isPlaying
+                          ? const Icon(Icons.stop_circle_rounded, color: AppColors.primary, size: 32)
+                          : const Icon(Icons.volume_up_rounded, color: AppColors.primary, size: 28),
+                      onPressed: () => _playAudio(cell.audioUrl!),
+                    );
+                  },
+                ),
+              ),
           ],
         ),
       ),
@@ -1698,6 +1762,49 @@ class _FlashcardLearningScreenState extends State<FlashcardLearningScreen> {
           ]
         ],
       ),
+    );
+  }
+
+  Widget _buildEmptyCardPlaceholder() {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        // Minh họa người câu cá (Sử dụng Icon làm fallback nếu chưa có asset SVG)
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: AppColors.primary.withValues(alpha: 0.05),
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(
+            Icons.sailing_rounded, // Icon mang tính chất "câu cá/biển"
+            size: 80,
+            color: AppColors.primary,
+          ),
+        ),
+        const SizedBox(height: 24),
+        const Text(
+          'Mặt thẻ này đang trống',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: AppColors.textPrimary,
+          ),
+        ),
+        const SizedBox(height: 12),
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 32),
+          child: Text(
+            'Chưa có dữ liệu cho mặt này. Hãy nhấn vào biểu tượng bánh răng để bổ sung nội dung nhé!',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 13,
+              color: AppColors.textSecondary,
+              height: 1.5,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
