@@ -1001,41 +1001,115 @@ class _FlashcardLearningScreenState extends State<FlashcardLearningScreen> {
       await _audioRecorder.start(const RecordConfig(), path: path);
       if (!mounted) return;
 
+      int seconds = 0;
+      Timer? timer;
+
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (ctx) => AlertDialog(
-          title: const Text('Đang thu âm...', style: TextStyle(fontSize: 16)),
-          content: const Icon(Icons.mic, size: 50, color: Colors.redAccent),
-          actions: [
-            TextButton(onPressed: () async { await _audioRecorder.stop(); Navigator.pop(ctx); }, child: const Text('Hủy')),
-            ElevatedButton(
-              onPressed: () async {
+        builder: (ctx) => StatefulBuilder(
+          builder: (builderContext, setLocalDialogState) {
+            timer ??= Timer.periodic(const Duration(seconds: 1), (t) async {
+              if (seconds >= 10) {
+                t.cancel();
                 final pathResult = await _audioRecorder.stop();
-                Navigator.pop(ctx);
+                if (ctx.mounted) Navigator.pop(ctx);
                 if (pathResult != null) {
-                  setDialogState(() => mState['audioUrl'] = 'uploading');
-                  final File file = File(pathResult);
-                  final bytes = await file.readAsBytes();
-                  final uploadResult = await context.read<DeckProvider>().uploadAudio(pathResult.split('/').last, bytes, oldObjectKey: mState['audioObjectKey']);
-                  if (uploadResult != null) {
-                    setDialogState(() {
-                      mState['audioUrl'] = uploadResult['url'];
-                      mState['audioObjectKey'] = uploadResult['objectKey'];
-                    });
-                  } else {
-                    setDialogState(() => mState['audioUrl'] = null);
-                  }
+                  _uploadRecordedFile(pathResult, mState, setDialogState);
                 }
-              },
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, foregroundColor: Colors.white),
-              child: const Text('Dừng & Tải lên'),
-            ),
-          ],
+              } else {
+                if (ctx.mounted) setLocalDialogState(() => seconds++);
+              }
+            });
+
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              title: const Text('Đang thu âm...', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      SizedBox(
+                        width: 70,
+                        height: 70,
+                        child: CircularProgressIndicator(
+                          value: seconds / 10,
+                          strokeWidth: 6,
+                          backgroundColor: Colors.grey.shade100,
+                          valueColor: const AlwaysStoppedAnimation<Color>(Colors.redAccent),
+                        ),
+                      ),
+                      const Icon(Icons.mic, size: 36, color: Colors.redAccent),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    '00:${seconds.toString().padLeft(2, '0')} / 00:10',
+                    style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, letterSpacing: 1.2),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text('Hãy phát âm rõ ràng', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () async {
+                    timer?.cancel();
+                    await _audioRecorder.stop();
+                    Navigator.pop(ctx);
+                  },
+                  child: const Text('HỦY', style: TextStyle(color: Colors.grey)),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    timer?.cancel();
+                    final pathResult = await _audioRecorder.stop();
+                    Navigator.pop(ctx);
+                    if (pathResult != null) {
+                      _uploadRecordedFile(pathResult, mState, setDialogState);
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.redAccent,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: const Text('DỪNG & LƯU'),
+                ),
+              ],
+            );
+          }
         ),
-      );
+      ).then((_) => timer?.cancel());
     } catch (e) {
       debugPrint('Error recording: $e');
+    }
+  }
+
+  Future<void> _uploadRecordedFile(String path, Map<String, dynamic> mState, StateSetter setDialogState) async {
+    setDialogState(() => mState['audioUrl'] = 'uploading');
+    try {
+      final File file = File(path);
+      final bytes = await file.readAsBytes();
+      final uploadResult = await context.read<DeckProvider>().uploadAudio(
+        path.split('/').last, 
+        bytes, 
+        oldObjectKey: mState['audioObjectKey']
+      );
+      
+      if (uploadResult != null) {
+        setDialogState(() {
+          mState['audioUrl'] = uploadResult['url'];
+          mState['audioObjectKey'] = uploadResult['objectKey'];
+        });
+      } else {
+        setDialogState(() => mState['audioUrl'] = null);
+      }
+    } catch (e) {
+      debugPrint('Upload error: $e');
+      setDialogState(() => mState['audioUrl'] = null);
     }
   }
 

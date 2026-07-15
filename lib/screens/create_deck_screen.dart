@@ -9,6 +9,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 import 'dart:io' show File;
 import 'dart:typed_data';
+import 'dart:async';
 import '../providers/deck_provider.dart';
 import '../utils/constants.dart';
 import 'bulk_import_screen.dart';
@@ -427,7 +428,15 @@ class _CreateDeckScreenState extends State<CreateDeckScreen> {
     try {
       final hasPermission = await _audioRecorder.hasPermission();
       if (!hasPermission) {
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Không có quyền truy cập Microphone.'), backgroundColor: Colors.orange));
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Ứng dụng cần quyền Microphone để thu âm. Vui lòng cấp quyền trong Cài đặt máy.'),
+              backgroundColor: Colors.orange,
+              duration: Duration(seconds: 4),
+            )
+          );
+        }
         return;
       }
 
@@ -461,40 +470,84 @@ class _CreateDeckScreenState extends State<CreateDeckScreen> {
   }
 
   void _showRecordingDialog(CellData cell, String? path) {
+    int seconds = 0;
+    Timer? timer;
+
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Đang thu âm...', style: TextStyle(fontSize: 16)),
-        content: const Column(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.mic, size: 50, color: Colors.redAccent), SizedBox(height: 10), Text('Hãy phát âm rõ ràng')]),
-        actions: [
-          TextButton(
-            onPressed: () async {
-              await _audioRecorder.stop();
-              if (ctx.mounted) Navigator.pop(ctx);
-            },
-            child: const Text('Hủy'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          timer ??= Timer.periodic(const Duration(seconds: 1), (t) async {
+            if (seconds >= 10) {
+              t.cancel();
               final pathResult = await _audioRecorder.stop();
-              debugPrint('⏹️ Đã dừng ghi âm. File lưu tại: $pathResult');
-
               if (ctx.mounted) Navigator.pop(ctx);
-
               if (pathResult != null) {
                 _processRecordedFile(cell, pathResult);
-              } else {
-                debugPrint('⚠️ Không nhận được đường dẫn file sau khi dừng ghi âm');
               }
-            },
-            style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.redAccent, foregroundColor: Colors.white),
-            child: const Text('Dừng & Tải lên'),
-          ),
-        ],
+            } else {
+              if (ctx.mounted) setDialogState(() => seconds++);
+            }
+          });
+
+          return AlertDialog(
+            title: const Text('Đang thu âm...', style: TextStyle(fontSize: 16)),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    SizedBox(
+                      width: 80,
+                      height: 80,
+                      child: CircularProgressIndicator(
+                        value: seconds / 10,
+                        strokeWidth: 6,
+                        backgroundColor: Colors.grey.shade200,
+                        valueColor: const AlwaysStoppedAnimation<Color>(Colors.redAccent),
+                      ),
+                    ),
+                    const Icon(Icons.mic, size: 40, color: Colors.redAccent),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  '00:${seconds.toString().padLeft(2, '0')} / 00:10',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                ),
+                const SizedBox(height: 8),
+                const Text('Hãy phát âm rõ ràng', style: TextStyle(color: Colors.grey)),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () async {
+                  timer?.cancel();
+                  await _audioRecorder.stop();
+                  if (ctx.mounted) Navigator.pop(ctx);
+                },
+                child: const Text('Hủy'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  timer?.cancel();
+                  final pathResult = await _audioRecorder.stop();
+                  if (ctx.mounted) Navigator.pop(ctx);
+                  if (pathResult != null) {
+                    _processRecordedFile(cell, pathResult);
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.redAccent, foregroundColor: Colors.white),
+                child: const Text('Dừng & Tải lên'),
+              ),
+            ],
+          );
+        },
       ),
-    );
+    ).then((_) => timer?.cancel());
   }
 
   Future<void> _processRecordedFile(CellData cell, String path) async {
