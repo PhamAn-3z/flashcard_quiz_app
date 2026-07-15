@@ -116,10 +116,10 @@ class _StudyHistoryScreenState extends State<StudyHistoryScreen> {
     final int duration = lastSession['seconds'] ?? 0;
     
     // Anki stats for navigation
-    final Map<String, dynamic> ankiStats = {
-      'newCount': item['newCount'] ?? 0,
-      'learningCount': item['learningCount'] ?? 0,
-      'dueCount': item['dueCount'] ?? 0,
+    final Map<String, int> ankiStats = {
+      'newCount': (item['newCount'] ?? 0) as int,
+      'learningCount': (item['learningCount'] ?? 0) as int,
+      'dueCount': (item['dueCount'] ?? 0) as int,
     };
 
     String durationText = '';
