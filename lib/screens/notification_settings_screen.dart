@@ -3,121 +3,110 @@ import 'package:provider/provider.dart';
 import '../providers/notification_provider.dart';
 import '../utils/constants.dart';
 
-class NotificationSettingsScreen extends StatelessWidget {
+class NotificationSettingsScreen extends StatefulWidget {
   const NotificationSettingsScreen({super.key});
+
+  @override
+  State<NotificationSettingsScreen> createState() => _NotificationSettingsScreenState();
+}
+
+class _NotificationSettingsScreenState extends State<NotificationSettingsScreen> {
+  final List<String> _daysOfWeek = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
 
   @override
   Widget build(BuildContext context) {
     final notifyProvider = context.watch<NotificationProvider>();
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC), // Ultra light gray/blue background
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
         title: const Text(
-          'Thông báo',
-          style: TextStyle(fontWeight: FontWeight.w800, letterSpacing: -0.5),
+          'Cài đặt nhắc nhở',
+          style: TextStyle(fontWeight: FontWeight.w800),
         ),
         centerTitle: true,
         backgroundColor: Colors.white,
-        foregroundColor: AppColors.textPrimary,
         elevation: 0,
-        scrolledUnderElevation: 0,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              "LỊCH HỌC & NHẮC NHỞ",
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: AppColors.textSecondary,
-                letterSpacing: 1.2,
+      body: notifyProvider.isLoadingSettings
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildSectionHeader("NHẮC NHỞ HỌC TẬP"),
+                  const SizedBox(height: 12),
+                  _buildSettingsGroup([
+                    _buildModernSwitch(
+                      title: 'Bật nhắc nhở',
+                      subtitle: 'Nhận thông báo khi đến giờ học',
+                      value: notifyProvider.studyReminderEnabled,
+                      onChanged: (val) => notifyProvider.updateSettings(enabled: val),
+                      icon: Icons.alarm_rounded,
+                      accentColor: AppColors.primary,
+                    ),
+                    if (notifyProvider.studyReminderEnabled) ...[
+                      const Divider(height: 1, indent: 70),
+                      _buildTimePickerTile(
+                        context,
+                        timeStr: notifyProvider.studyReminderTime,
+                        onTap: () async {
+                          final timeParts = notifyProvider.studyReminderTime.split(':');
+                          final initialTime = TimeOfDay(
+                            hour: int.parse(timeParts[0]),
+                            minute: int.parse(timeParts[1]),
+                          );
+                          final TimeOfDay? picked = await showTimePicker(
+                            context: context,
+                            initialTime: initialTime,
+                          );
+                          if (picked != null) {
+                            final formattedTime = "${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}";
+                            notifyProvider.updateSettings(time: formattedTime);
+                          }
+                        },
+                      ),
+                      const Divider(height: 1, indent: 70),
+                      _buildDaysPicker(notifyProvider),
+                    ]
+                  ]),
+                  const SizedBox(height: 32),
+                  _buildSectionHeader("THÀNH VIÊN"),
+                  const SizedBox(height: 12),
+                  _buildSettingsGroup([
+                    _buildModernSwitch(
+                      title: 'Hết hạn gói cước',
+                      subtitle: 'Thông báo khi gói Membership sắp hết hạn',
+                      value: notifyProvider.subExpiryNotify,
+                      onChanged: (val) => notifyProvider.updateSettings(subNotify: val),
+                      icon: Icons.card_membership_rounded,
+                      accentColor: Colors.orange,
+                    ),
+                  ]),
+                  const SizedBox(height: 40),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        padding: const EdgeInsets.symmetric(vertical: 18),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      ),
+                      child: const Text('LƯU CÀI ĐẶT', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 12),
-            _buildSettingsGroup([
-              _buildModernSwitch(
-                title: 'Duy trì chuỗi (Streak)',
-                subtitle: 'Nhắc khi bạn sắp mất chuỗi học tập',
-                value: notifyProvider.streakReminder,
-                onChanged: (val) => notifyProvider.toggleStreakReminder(val),
-                icon: Icons.local_fire_department_rounded,
-                accentColor: Colors.orange,
-              ),
-              _buildModernSwitch(
-                title: 'Nhắc nhở hàng ngày',
-                subtitle: 'Theo sát kế hoạch học tập đã đề ra',
-                value: notifyProvider.studyReminder,
-                onChanged: (val) => notifyProvider.toggleStudyReminder(val),
-                icon: Icons.calendar_today_rounded,
-                accentColor: AppColors.primary,
-              ),
-              if (notifyProvider.studyReminder)
-                _buildTimePickerTile(
-                  context,
-                  time: notifyProvider.reminderTime,
-                  onTap: () async {
-                    final TimeOfDay? picked = await showTimePicker(
-                      context: context,
-                      initialTime: notifyProvider.reminderTime,
-                      builder: (context, child) {
-                        return Theme(
-                          data: Theme.of(context).copyWith(
-                            colorScheme: const ColorScheme.light(
-                              primary: AppColors.primary,
-                            ),
-                          ),
-                          child: child!,
-                        );
-                      },
-                    );
-                    if (picked != null) notifyProvider.setReminderTime(picked);
-                  },
-                ),
-            ]),
-            const SizedBox(height: 32),
-            const Text(
-              "CẬP NHẬT ỨNG DỤNG",
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: AppColors.textSecondary,
-                letterSpacing: 1.2,
-              ),
-            ),
-            const SizedBox(height: 12),
-            _buildSettingsGroup([
-              _buildModernSwitch(
-                title: 'Nội dung & Bài học mới',
-                subtitle: 'Thông báo khi có từ vựng, ngữ pháp mới',
-                value: notifyProvider.newContentNotify,
-                onChanged: (val) => notifyProvider.toggleNewContentNotify(val),
-                icon: Icons.auto_awesome_rounded,
-                accentColor: Colors.purple,
-              ),
-            ]),
-            const SizedBox(height: 40),
-            SizedBox(
-              width: double.infinity,
-              child: TextButton(
-                onPressed: () => Navigator.pop(context),
-                style: TextButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                ),
-                child: const Text(
-                  'Lưu cấu hình',
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 16),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
+    );
+  }
+
+  Widget _buildSectionHeader(String title) {
+    return Text(
+      title,
+      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.textSecondary, letterSpacing: 1.2),
     );
   }
 
@@ -126,17 +115,9 @@ class NotificationSettingsScreen extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 20, offset: const Offset(0, 10))],
       ),
-      child: Column(
-        children: children,
-      ),
+      child: Column(children: children),
     );
   }
 
@@ -154,10 +135,7 @@ class NotificationSettingsScreen extends StatelessWidget {
         children: [
           Container(
             padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: accentColor.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(14),
-            ),
+            decoration: BoxDecoration(color: accentColor.withOpacity(0.1), borderRadius: BorderRadius.circular(14)),
             child: Icon(icon, color: accentColor, size: 24),
           ),
           const SizedBox(width: 16),
@@ -170,41 +148,74 @@ class NotificationSettingsScreen extends StatelessWidget {
               ],
             ),
           ),
-          Switch.adaptive(
-            value: value,
-            onChanged: onChanged,
-            activeColor: AppColors.primary,
-          ),
+          Switch.adaptive(value: value, onChanged: onChanged, activeColor: AppColors.primary),
         ],
       ),
     );
   }
 
-  Widget _buildTimePickerTile(BuildContext context, {required TimeOfDay time, required VoidCallback onTap}) {
-    return InkWell(
+  Widget _buildTimePickerTile(BuildContext context, {required String timeStr, required VoidCallback onTap}) {
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      leading: const SizedBox(width: 44, child: Icon(Icons.access_time_rounded, color: Colors.grey)),
+      title: const Text('Thời gian nhắc', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+      trailing: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+        child: Text(timeStr, style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w800, fontSize: 15)),
+      ),
       onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        margin: const EdgeInsets.only(left: 56, right: 16, bottom: 16),
-        decoration: BoxDecoration(
-          color: const Color(0xFFF1F5F9),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text('Thời gian nhắc', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-            Row(
-              children: [
-                Text(
-                  time.format(context),
-                  style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w800, fontSize: 15),
+    );
+  }
+
+  Widget _buildDaysPicker(NotificationProvider provider) {
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(left: 56),
+            child: Text('Lặp lại vào các ngày', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: List.generate(7, (index) {
+              final dayNum = index + 1;
+              final isSelected = provider.studyReminderDays.contains(dayNum);
+              return GestureDetector(
+                onTap: () {
+                  List<int> newDays = List.from(provider.studyReminderDays);
+                  if (isSelected) {
+                    if (newDays.length > 1) newDays.remove(dayNum);
+                  } else {
+                    newDays.add(dayNum);
+                  }
+                  provider.updateSettings(days: newDays);
+                },
+                child: Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: isSelected ? AppColors.primary : const Color(0xFFF1F5F9),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: Text(
+                      _daysOfWeek[index],
+                      style: TextStyle(
+                        color: isSelected ? Colors.white : AppColors.textSecondary,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
                 ),
-                const Icon(Icons.chevron_right, size: 18, color: AppColors.primary),
-              ],
-            ),
-          ],
-        ),
+              );
+            }),
+          ),
+        ],
       ),
     );
   }

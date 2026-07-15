@@ -66,6 +66,16 @@ class ApiConstants {
   static String get profile => '$baseUrl/user/profile';
   static String get transactions => '$baseUrl/user/transactions';
 
+  // Notification Endpoints
+  static String get notifications => '$baseUrl/notifications';
+  static String get notificationSettings => '$baseUrl/notification-settings';
+  static String get registerFcmToken => '$baseUrl/notifications/register-token';
+
   // Deck Endpoints
   static String get decks => '$baseUrl/decks';
+
+  // Admin Endpoints
+  static String get adminUsers => '$baseUrl/admin/users';
+  static String get adminReceipts => '$baseUrl/receipts';
+  static String get adminCleanupReceipts => '$baseUrl/receipts/cleanup';
 }

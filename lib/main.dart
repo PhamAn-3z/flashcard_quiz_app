@@ -1,11 +1,13 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flashcard_quiz_app/providers/auth_provider.dart';
+import 'package:flashcard_quiz_app/providers/admin_provider.dart';
 import 'package:flashcard_quiz_app/providers/deck_provider.dart';
 import 'package:flashcard_quiz_app/providers/notification_provider.dart';
 import 'package:flashcard_quiz_app/providers/transaction_provider.dart';
 import 'package:flashcard_quiz_app/screens/login_screen.dart';
 import 'package:flashcard_quiz_app/screens/main_navigation.dart';
+import 'package:flashcard_quiz_app/screens/admin_dashboard_screen.dart';
 import 'package:flashcard_quiz_app/utils/constants.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -60,7 +62,20 @@ void main() async {
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
-        ChangeNotifierProvider(create: (_) => NotificationProvider()),
+        ChangeNotifierProxyProvider<AuthProvider, NotificationProvider>(
+          create: (_) => NotificationProvider(),
+          update: (_, auth, notify) {
+            notify!.updateToken(auth.token);
+            return notify;
+          },
+        ),
+        ChangeNotifierProxyProvider<AuthProvider, AdminProvider>(
+          create: (_) => AdminProvider(),
+          update: (_, auth, admin) {
+            admin!.updateToken(auth.token);
+            return admin;
+          },
+        ),
         ChangeNotifierProxyProvider<AuthProvider, DeckProvider>(
           create: (_) => DeckProvider(),
           update: (_, auth, deck) {
@@ -200,11 +215,10 @@ class _NotificationSetupScreenState extends State<NotificationSetupScreen> {
 
   // Hàm gửi Token lên Backend của bạn
   Future<void> _sendTokenToBackend(String token) async {
-    // Lấy token của AuthProvider nếu backend yêu cầu Bearer Token để chứng thực API
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final userToken = authProvider.token;
-
-    print("Đã gửi token $token lên Backend thành công với User Token: $userToken");
+    // Gọi hàm đăng ký token từ NotificationProvider
+    final notifyProvider = Provider.of<NotificationProvider>(context, listen: false);
+    await notifyProvider.registerFcmToken(token);
+    print("Đã thực hiện gửi token FCM lên Backend.");
   }
 
   // Hàm điều hướng tùy biến dựa trên dữ liệu 'data' đi kèm thông báo
@@ -218,8 +232,7 @@ class _NotificationSetupScreenState extends State<NotificationSetupScreen> {
     
     // Nếu là Admin (role_id == '3'), có thể trả về một màn hình Admin riêng ở đây nếu muốn
     if (auth.user?.roleId == '3') {
-      // return const AdminDashboard(); // Ví dụ
-      return const MainNavigation(); 
+      return const AdminDashboardScreen();
     }
     
     // Trả trực tiếp về MainNavigation cho User thường

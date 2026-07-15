@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/deck_provider.dart';
+import '../providers/notification_provider.dart';
 import '../utils/constants.dart';
 import 'profile_screen.dart';
+import 'notifications_list_screen.dart';
 import 'notification_settings_screen.dart';
 import 'quiz_list_screen.dart';
 import 'translation_screen.dart';
@@ -135,7 +137,31 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
       actions: [
-        IconButton(icon: const Icon(Icons.notifications_none_rounded, color: Colors.white, size: 26), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationSettingsScreen()))),
+        Consumer<NotificationProvider>(
+          builder: (context, notify, _) => Stack(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.notifications_none_rounded, color: Colors.white, size: 26),
+                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsListScreen())),
+              ),
+              if (notify.unreadCount > 0)
+                Positioned(
+                  right: 8,
+                  top: 8,
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(10)),
+                    constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                    child: Text(
+                      '${notify.unreadCount}',
+                      style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
         Consumer<AuthProvider>(builder: (context, auth, _) => GestureDetector(
           onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfileScreen())),
           child: const Padding(
