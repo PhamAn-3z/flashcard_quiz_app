@@ -1,20 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../providers/auth_provider.dart';
 import '../providers/deck_provider.dart';
 import '../providers/notification_provider.dart';
 import '../utils/constants.dart';
 import 'profile_screen.dart';
 import 'notifications_list_screen.dart';
-import 'notification_settings_screen.dart';
-import 'quiz_list_screen.dart';
 import 'translation_screen.dart';
 import 'deck_list_screen.dart';
-import 'flashcard_learning_screen.dart';
 import 'deck_overview_screen.dart';
 import 'explore_decks_screen.dart';
-import 'privacy_policy_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -100,8 +95,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   _buildReviewReminders(context),
                   
                   _buildRecentStudyHistory(context),
-                  const SizedBox(height: 24),
-                  _buildFooter(context),
                   const SizedBox(height: 40),
                 ],
               ),
@@ -110,138 +103,6 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
     );
-  }
-
-  Widget _buildFooter(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(32),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 20,
-            offset: const Offset(0, -5),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Logo & Slogan
-          const Text('NihonGo!', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: AppColors.primary)),
-          const Text('Học tiếng Nhật hiệu quả mỗi ngày', style: TextStyle(fontSize: 12, color: Colors.grey)),
-          const SizedBox(height: 24),
-
-          // Địa chỉ
-          _buildFooterInfoItem(
-            Icons.location_on_rounded, 
-            'Trụ sở Hà Nội:', 
-            'Khu Công Nghệ Cao Hòa Lạc, CT03, Hòa Lạc, Hà Nội',
-            onTap: () => _launchURL('https://www.google.com/maps/search/?api=1&query=20.9852,105.5269'),
-          ),
-          const SizedBox(height: 16),
-          _buildFooterInfoItem(
-            Icons.location_on_rounded, 
-            'Chi nhánh TP. HCM:', 
-            '7 Đ. D1, Tăng Nhơn Phú, TP. Thủ Đức, Hồ Chí Minh',
-            onTap: () => _launchURL('https://www.google.com/maps/search/?api=1&query=10.8412,106.8096'),
-          ),
-          
-          const Divider(height: 40, thickness: 1, color: Color(0xFFF1F5F9)),
-
-          // Liên hệ
-          Row(
-            children: [
-              Expanded(
-                child: _buildFooterInfoItem(
-                  Icons.phone_iphone_rounded, 
-                  'Hotline:', 
-                  '0822.858.489',
-                  onTap: () => _launchURL('tel:0822858489'),
-                ),
-              ),
-              Expanded(
-                child: _buildFooterInfoItem(
-                  Icons.mail_outline_rounded, 
-                  'Email:', 
-                  'anphamgm2k5@gmail.com',
-                  onTap: () => _launchURL('mailto:anphamgm2k5@gmail.com'),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          _buildFooterInfoItem(
-            Icons.access_time_rounded, 
-            'Giờ làm việc:', 
-            'Thứ 2 - Thứ 7 (08:30 - 17:30)',
-          ),
-
-          const SizedBox(height: 32),
-          
-          // Social Media & Links
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              TextButton(
-                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PrivacyPolicyScreen())),
-                child: const Text('Điều khoản & Bảo mật', style: TextStyle(fontSize: 12, color: Colors.grey, decoration: TextDecoration.underline)),
-              ),
-            ],
-          ),
-          
-          const SizedBox(height: 24),
-          const Center(
-            child: Text(
-              '© 2024 NihonGo Team. Made with ❤️ for Learners.',
-              style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w500),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFooterInfoItem(IconData icon, String label, String value, {VoidCallback? onTap}) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.05), borderRadius: BorderRadius.circular(10)),
-            child: Icon(icon, size: 18, color: AppColors.primary),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey)),
-                Text(value, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: onTap != null ? AppColors.primary : AppColors.textPrimary)),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _launchURL(String url) async {
-    final Uri uri = Uri.parse(url);
-    try {
-      if (url.startsWith('mailto:') || url.startsWith('tel:')) {
-        await launchUrl(uri);
-      } else if (await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      }
-    } catch (e) {
-      debugPrint('Could not launch $url: $e');
-    }
   }
 
   Widget _buildMaziiHeader(BuildContext context) {
