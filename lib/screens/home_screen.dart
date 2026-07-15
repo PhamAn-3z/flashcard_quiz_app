@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:record/record.dart';
 import '../providers/auth_provider.dart';
 import '../providers/deck_provider.dart';
 import '../providers/notification_provider.dart';
@@ -27,9 +28,26 @@ class _HomeScreenState extends State<HomeScreen> {
   final PageController _historyPageController = PageController();
   final TextEditingController _searchController = TextEditingController();
 
+  Future<void> _checkAudioPermission() async {
+    final recorder = AudioRecorder();
+    try {
+      final hasPermission = await recorder.hasPermission();
+      if (!hasPermission && mounted) {
+        debugPrint("🎤 Audio permission NOT granted");
+      } else {
+        debugPrint("🎤 Audio permission granted");
+      }
+    } catch (e) {
+      debugPrint("❌ Error checking audio permission: $e");
+    } finally {
+      recorder.dispose();
+    }
+  }
+
   @override
   void initState() {
     super.initState();
+    _checkAudioPermission();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final provider = context.read<DeckProvider>();
       provider.fetchExploreDecks(filter: 'not_in_library');

@@ -156,14 +156,19 @@ class _FlashcardLearningScreenState extends State<FlashcardLearningScreen> with 
               localPath = filePath;
               _localAudioPaths[url] = filePath;
             }
-          } catch (_) {}
+          } catch (e) {
+            debugPrint('⚠️ Không thể tải file âm thanh để phát: $url - $e');
+            // Nếu không tải được về máy, ta sẽ không cố phát từ URL hỏng để tránh lỗi hệ thống
+            throw Exception('File âm thanh không tồn tại (404)');
+          }
         }
 
-        Source source = (localPath != null && File(localPath).existsSync()) 
-            ? DeviceFileSource(localPath) 
-            : UrlSource(url);
-
-        await _audioPlayer.play(source).timeout(const Duration(seconds: 15));
+        if (localPath != null && File(localPath).existsSync()) {
+          await _audioPlayer.play(DeviceFileSource(localPath)).timeout(const Duration(seconds: 15));
+        } else {
+          // Fallback cuối cùng nếu không có file local
+          await _audioPlayer.play(UrlSource(url)).timeout(const Duration(seconds: 15));
+        }
       }
       if (mounted) setState(() {}); // Chỉ cập nhật UI màn hình chính (nếu cần)
     } catch (e) {
@@ -229,8 +234,10 @@ class _FlashcardLearningScreenState extends State<FlashcardLearningScreen> with 
         if (!mounted) return;
 
         // 1. Pre-cache Hình ảnh
-        if (cell.imageUrl != null) {
-          precacheImage(NetworkImage(cell.imageUrl!), context);
+        if (cell.imageUrl != null && cell.imageUrl!.isNotEmpty) {
+          precacheImage(NetworkImage(cell.imageUrl!), context).catchError((e) {
+            debugPrint('⚠️ Không thể tải trước ảnh (404 hoặc lỗi mạng): ${cell.imageUrl}');
+          });
         }
 
         // 2. Pre-download Âm thanh
