@@ -73,7 +73,7 @@ class NotificationProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      final response = await _dio.get('/notification-settings');
+      final response = await _dio.get('notification-settings');
       final data = response.data['data'] ?? response.data;
       
       if (data != null) {
@@ -98,7 +98,7 @@ class NotificationProvider with ChangeNotifier {
     if (_token == null) return false;
 
     try {
-      final response = await _dio.put('/notification-settings/study-reminder', data: {
+      final response = await _dio.put('notification-settings/study-reminder', data: {
         'is_enabled': enabled ?? _studyReminderEnabled,
         'time': time ?? _studyReminderTime,
         'days': days ?? _studyReminderDays,
@@ -124,7 +124,7 @@ class NotificationProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      final response = await _dio.get('/notifications');
+      final response = await _dio.get('notifications');
       final List<dynamic> data = response.data['data'] ?? response.data ?? [];
       _notifications = data.map((json) => AppNotification.fromJson(json)).toList();
       _notifications.sort((a, b) => b.createdAt.compareTo(a.createdAt));
@@ -138,7 +138,7 @@ class NotificationProvider with ChangeNotifier {
 
   Future<void> markAsRead(String id) async {
     try {
-      await _dio.put('/notifications/$id/read');
+      await _dio.put('notifications/$id/read');
       final index = _notifications.indexWhere((n) => n.id == id);
       if (index != -1) {
         _notifications[index].isRead = true;
@@ -151,7 +151,7 @@ class NotificationProvider with ChangeNotifier {
 
   Future<void> markAllAsRead() async {
     try {
-      await _dio.put('/notifications/read-all');
+      await _dio.put('notifications/read-all');
       for (var n in _notifications) {
         n.isRead = true;
       }
@@ -164,7 +164,7 @@ class NotificationProvider with ChangeNotifier {
   Future<void> registerFcmToken(String fcmToken) async {
     if (_token == null) return;
     try {
-      await _dio.post('/notifications/register-token', data: {'fcm_token': fcmToken});
+      await _dio.post('notifications/register-token', data: {'fcm_token': fcmToken});
       debugPrint("FCM Token registered successfully");
     } catch (e) {
       debugPrint("Error registering FCM token: $e");

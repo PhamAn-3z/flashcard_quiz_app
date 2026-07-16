@@ -88,7 +88,7 @@ class DeckProvider with ChangeNotifier {
     if (_isFetchingPublic) return;
     _isFetchingPublic = true;
     try {
-      final response = await _dio.get('/decks');
+      final response = await _dio.get('decks');
       if (response.statusCode == 200 && response.data['success'] == true) {
         final List<dynamic> data = response.data['data'] ?? [];
         _publicDecks = data.map((item) => Deck.fromJson(item)).toList();
@@ -120,7 +120,7 @@ class DeckProvider with ChangeNotifier {
 
     int fetchedCount = 0;
     try {
-      final response = await _dio.get('/decks/explore', queryParameters: {
+      final response = await _dio.get('decks/explore', queryParameters: {
         'sortBy': sortBy,
         'limit': limit,
         'page': page,
@@ -155,7 +155,7 @@ class DeckProvider with ChangeNotifier {
     if (_isFetchingRecent) return;
     _isFetchingRecent = true;
     try {
-      final response = await _dio.get('/decks/recent', queryParameters: {'limit': 10});
+      final response = await _dio.get('decks/recent', queryParameters: {'limit': 10});
       if (response.statusCode == 200 && response.data['success'] == true) {
         _recentDecks = response.data['data'] ?? [];
         notifyListeners();
@@ -176,7 +176,7 @@ class DeckProvider with ChangeNotifier {
     Future.delayed(Duration.zero, () => notifyListeners());
 
     try {
-      final response = await _dio.get('/decks/my-decks');
+      final response = await _dio.get('decks/my-decks');
       if (response.statusCode == 200 && response.data['success'] == true) {
         final List<dynamic> data = response.data['data'] ?? [];
         _myDecks = data.map((item) => Deck.fromJson(item)).toList();
@@ -198,7 +198,7 @@ class DeckProvider with ChangeNotifier {
 
   Future<bool> toggleFavorite(int deckId, bool isFavorite) async {
     try {
-      final response = await _dio.patch('/decks/$deckId/toggle-favorite', data: {
+      final response = await _dio.patch('decks/$deckId/toggle-favorite', data: {
         'isFavorite': !isFavorite,
       });
       if (response.statusCode == 200 && response.data['success'] == true) {
@@ -214,7 +214,7 @@ class DeckProvider with ChangeNotifier {
 
   Future<List<Comment>> fetchComments(int deckId) async {
     try {
-      final response = await _dio.get('/decks/$deckId/comments');
+      final response = await _dio.get('decks/$deckId/comments');
       if (response.statusCode == 200 && response.data['success'] == true) {
         final List<dynamic> data = response.data['data'] ?? [];
         return data.map((item) => Comment.fromJson(item)).toList();
@@ -227,7 +227,7 @@ class DeckProvider with ChangeNotifier {
 
   Future<bool> addComment(int deckId, String content, {int? parentCommentId}) async {
     try {
-      final response = await _dio.post('/decks/$deckId/comments', data: {
+      final response = await _dio.post('decks/$deckId/comments', data: {
         'content': content,
         'parentCommentId': parentCommentId,
       });
@@ -240,7 +240,7 @@ class DeckProvider with ChangeNotifier {
 
   Future<void> likeComment(int commentId) async {
     try {
-      await _dio.post('/comments/$commentId/like');
+      await _dio.post('comments/$commentId/like');
     } catch (e) {
       debugPrint('Error liking comment: $e');
     }
@@ -248,7 +248,7 @@ class DeckProvider with ChangeNotifier {
 
   Future<bool> deleteComment(int commentId) async {
     try {
-      final response = await _dio.delete('/comments/$commentId');
+      final response = await _dio.delete('comments/$commentId');
       return response.statusCode == 200 && response.data['success'] == true;
     } catch (e) {
       debugPrint('Error deleting comment: $e');
@@ -260,7 +260,7 @@ class DeckProvider with ChangeNotifier {
     _isLoading = true;
     Future.delayed(Duration.zero, () => notifyListeners());
     try {
-      final response = await _dio.get('/decks/$deckId/study');
+      final response = await _dio.get('decks/$deckId/study');
 
       if (response.statusCode == 200 && response.data['success'] == true) {
         final data = response.data['data'];
@@ -297,7 +297,7 @@ class DeckProvider with ChangeNotifier {
     Future.delayed(Duration.zero, () => notifyListeners());
     try {
       final response = await _dio.post(
-        '/decks/bulk-import',
+        'decks/bulk-import',
         data: {
           "deckTitle": deckTitle,
           "publicStatus": publicStatus,
@@ -323,7 +323,7 @@ class DeckProvider with ChangeNotifier {
 
   Future<bool> deleteDeck(int deckId) async {
     try {
-      final response = await _dio.delete('/decks/$deckId');
+      final response = await _dio.delete('decks/$deckId');
       if (response.statusCode == 200 && response.data['success'] == true) {
         await fetchMyDecks();
         return true;
@@ -343,7 +343,7 @@ class DeckProvider with ChangeNotifier {
   }) async {
     try {
       final response = await _dio.patch(
-        '/decks/$deckId/cards/$positionId/content',
+        'decks/$deckId/cards/$positionId/content',
         data: {
           'headers': headers,
           'terms': terms,
@@ -358,7 +358,7 @@ class DeckProvider with ChangeNotifier {
 
   Future<bool> updatePersonalizedRanks(int deckId, List<Map<String, dynamic>> ranks) async {
     try {
-      final response = await _dio.patch('/decks/$deckId/personalized-ranks', data: {
+      final response = await _dio.patch('decks/$deckId/personalized-ranks', data: {
         'ranks': ranks,
       });
       return response.statusCode == 200 && response.data['success'] == true;
@@ -370,7 +370,7 @@ class DeckProvider with ChangeNotifier {
 
   Future<Map<String, dynamic>?> fetchMembershipLimit() async {
     try {
-      final response = await _dio.get('/decks/membership-limit');
+      final response = await _dio.get('decks/membership-limit');
       if (response.statusCode == 200 && response.data['success'] == true) {
         return response.data['data'];
       }
@@ -383,7 +383,7 @@ class DeckProvider with ChangeNotifier {
 
   Future<bool> resetDeckProgress(int deckId) async {
     try {
-      final response = await _dio.post('/decks/$deckId/reset-progress');
+      final response = await _dio.post('decks/$deckId/reset-progress');
       if (response.statusCode == 200 && response.data['success'] == true) {
         fetchMyDecks();
         fetchRecentDecks();
@@ -401,7 +401,7 @@ class DeckProvider with ChangeNotifier {
     _updateLocalDeckLibraryStatus(deckId, true);
     
     try {
-      final response = await _dio.post('/decks/$deckId/save');
+      final response = await _dio.post('decks/$deckId/save');
       if (response.statusCode == 200 && response.data['success'] == true) {
         fetchMyDecks(); // Chỉ tải lại thư viện cá nhân trong background
         return true;
@@ -419,7 +419,7 @@ class DeckProvider with ChangeNotifier {
     _updateLocalDeckLibraryStatus(deckId, false);
     
     try {
-      final response = await _dio.delete('/decks/$deckId/unsave');
+      final response = await _dio.delete('decks/$deckId/unsave');
       if (response.statusCode == 200 && response.data['success'] == true) {
         fetchMyDecks();
         return true;
@@ -482,7 +482,7 @@ class DeckProvider with ChangeNotifier {
   }) async {
     try {
       final response = await _dio.post(
-        '/study-logs/session-end',
+        'study-logs/session-end',
         data: {
           "deck_id": deckId,
           "cards_learned": cardsLearned,
@@ -513,8 +513,8 @@ class DeckProvider with ChangeNotifier {
   Future<Map<String, dynamic>?> getCloudinarySignature({String? oldPublicId}) async {
     try {
       final response = oldPublicId == null 
-        ? await _dio.get('/images/generate-signature')
-        : await _dio.post('/images/update', data: {'oldPublicId': oldPublicId});
+        ? await _dio.get('images/generate-signature')
+        : await _dio.post('images/update', data: {'oldPublicId': oldPublicId});
 
       if (response.statusCode == 200 && response.data['success'] == true) {
         return response.data['data'];
@@ -537,11 +537,11 @@ class DeckProvider with ChangeNotifier {
 
       // 1. Lấy Pre-signed URL từ Backend (Sử dụng API update nếu có file cũ)
       final urlResponse = oldObjectKey == null
-        ? await _dio.post('/audio/generate-upload-url', data: {
+        ? await _dio.post('audio/generate-upload-url', data: {
             'fileName': fileName,
             'contentType': contentType,
           })
-        : await _dio.post('/audio/update', data: {
+        : await _dio.post('audio/update', data: {
             'oldObjectKey': oldObjectKey,
             'newFileName': fileName,
             'contentType': contentType,
@@ -582,7 +582,7 @@ class DeckProvider with ChangeNotifier {
   /// Xóa ảnh từ Cloudinary thông qua Backend
   Future<bool> deleteImage(String publicId) async {
     try {
-      final response = await _dio.delete('/images/delete', data: {'publicId': publicId});
+      final response = await _dio.delete('images/delete', data: {'publicId': publicId});
       return response.statusCode == 200 && response.data['success'] == true;
     } catch (e) {
       debugPrint('Error deleting image: $e');
@@ -593,7 +593,7 @@ class DeckProvider with ChangeNotifier {
   /// Xóa audio từ Cloudflare R2 thông qua Backend
   Future<bool> deleteAudioFromR2(String objectKey) async {
     try {
-      final response = await _dio.delete('/audio/delete', data: {'objectKey': objectKey});
+      final response = await _dio.delete('audio/delete', data: {'objectKey': objectKey});
       return response.statusCode == 200 && response.data['success'] == true;
     } catch (e) {
       debugPrint('Error deleting audio: $e');

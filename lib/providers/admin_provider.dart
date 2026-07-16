@@ -20,13 +20,16 @@ class AdminProvider with ChangeNotifier {
   }
 
   // --- User Management ---
+  List<Map<String, dynamic>> _users = [];
+  List<Map<String, dynamic>> get users => _users;
+
   Future<List<Map<String, dynamic>>> fetchAllUsers() async {
     _isLoading = true;
     notifyListeners();
     try {
-      // Bỏ dấu / ở đầu để Dio dùng baseUrl chính xác
       final response = await _dio.get('admin/users'); 
-      return List<Map<String, dynamic>>.from(response.data['data'] ?? []);
+      _users = List<Map<String, dynamic>>.from(response.data['data'] ?? []);
+      return _users;
     } catch (e) {
       debugPrint("Error fetching users: $e");
       return [];
@@ -38,7 +41,7 @@ class AdminProvider with ChangeNotifier {
 
   Future<bool> warnUser(String userId, String reason) async {
     try {
-      await _dio.post('/admin/users/$userId/warning', data: {'reason': reason});
+      await _dio.post('admin/users/$userId/warning', data: {'reason': reason});
       return true;
     } catch (e) {
       return false;
@@ -47,7 +50,7 @@ class AdminProvider with ChangeNotifier {
 
   Future<bool> tempBanUser(String userId, String reason, int days) async {
     try {
-      await _dio.post('/admin/users/$userId/temp-ban', data: {'reason': reason, 'days': days});
+      await _dio.post('admin/users/$userId/temp-ban', data: {'reason': reason, 'days': days});
       return true;
     } catch (e) {
       return false;
@@ -56,7 +59,7 @@ class AdminProvider with ChangeNotifier {
 
   Future<bool> permBanUser(String userId, String reason) async {
     try {
-      await _dio.post('/admin/users/$userId/permanent-ban', data: {'reason': reason});
+      await _dio.post('admin/users/$userId/permanent-ban', data: {'reason': reason});
       return true;
     } catch (e) {
       return false;
@@ -65,8 +68,8 @@ class AdminProvider with ChangeNotifier {
 
   Future<List<dynamic>> fetchUserPenalties(String userId) async {
     try {
-      final response = await _dio.get('/admin/users/$userId/penalties');
-      return response.data['data'] ?? [];
+      final response = await _dio.get('admin/users/$userId/penalties');
+      return response.data ?? [];
     } catch (e) {
       return [];
     }
