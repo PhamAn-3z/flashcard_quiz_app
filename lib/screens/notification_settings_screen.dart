@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import '../providers/notification_provider.dart';
 import '../utils/constants.dart';
 
@@ -12,6 +13,21 @@ class NotificationSettingsScreen extends StatefulWidget {
 
 class _NotificationSettingsScreenState extends State<NotificationSettingsScreen> {
   final List<String> _daysOfWeek = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+  bool? _isPermissionGranted;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkPermission();
+  }
+
+  Future<void> _checkPermission() async {
+    final settings = await FirebaseMessaging.instance.getNotificationSettings();
+    setState(() {
+      _isPermissionGranted = settings.authorizationStatus == AuthorizationStatus.authorized ||
+          settings.authorizationStatus == AuthorizationStatus.provisional;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -21,7 +37,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
         title: const Text(
-          'Cài đặt nhắc nhở',
+          'Cài đặt thông báo',
           style: TextStyle(fontWeight: FontWeight.w800),
         ),
         centerTitle: true,
@@ -35,11 +51,13 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  if (_isPermissionGranted == false)
+                    _buildPermissionWarning(),
                   _buildSectionHeader("NHẮC NHỞ HỌC TẬP"),
                   const SizedBox(height: 12),
                   _buildSettingsGroup([
                     _buildModernSwitch(
-                      title: 'Bật nhắc nhở',
+                      title: 'Giờ học cố định',
                       subtitle: 'Nhận thông báo khi đến giờ học',
                       value: notifyProvider.studyReminderEnabled,
                       onChanged: (val) => notifyProvider.updateSettings(enabled: val),
@@ -50,6 +68,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                       const Divider(height: 1, indent: 70),
                       _buildTimePickerTile(
                         context,
+                        title: 'Thời gian nhắc học',
                         timeStr: notifyProvider.studyReminderTime,
                         onTap: () async {
                           final timeParts = notifyProvider.studyReminderTime.split(':');
@@ -71,6 +90,88 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                       _buildDaysPicker(notifyProvider),
                     ]
                   ]),
+                  const SizedBox(height: 24),
+                  _buildSectionHeader("NHẮC NHỞ CHUỖI (STREAK)"),
+                  const SizedBox(height: 12),
+                  _buildSettingsGroup([
+                    _buildModernSwitch(
+                      title: 'Duy trì học tập',
+                      subtitle: 'Nhắc nhở để không bị mất Streak',
+                      value: notifyProvider.streakReminderEnabled,
+                      onChanged: (val) => notifyProvider.updateSettings(streakEnabled: val),
+                      icon: Icons.local_fire_department_rounded,
+                      accentColor: Colors.orange,
+                    ),
+                    if (notifyProvider.streakReminderEnabled) ...[
+                      const Divider(height: 1, indent: 70),
+                      _buildTimePickerTile(
+                        context,
+                        title: 'Thời gian nhắc',
+                        timeStr: notifyProvider.streakReminderTime,
+                        onTap: () async {
+                          final timeParts = notifyProvider.streakReminderTime.split(':');
+                          final initialTime = TimeOfDay(
+                            hour: int.parse(timeParts[0]),
+                            minute: int.parse(timeParts[1]),
+                          );
+                          final TimeOfDay? picked = await showTimePicker(
+                            context: context,
+                            initialTime: initialTime,
+                          );
+                          if (picked != null) {
+                            final formattedTime = "${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}";
+                            notifyProvider.updateSettings(streakTime: formattedTime);
+                          }
+                        },
+                      ),
+                    ]
+                  ]),
+                  const SizedBox(height: 24),
+                  _buildSectionHeader("THÔNG BÁO HỆ THỐNG"),
+                  const SizedBox(height: 12),
+                  _buildSettingsGroup([
+                    _buildModernSwitch(
+                      title: 'Hết hạn gói cước',
+                      subtitle: 'Thông báo trước khi Membership hết hạn',
+                      value: notifyProvider.subExpiryNotify,
+                      onChanged: (val) => notifyProvider.updateSettings(subExpiryNotify: val),
+                      icon: Icons.card_membership_rounded,
+                      accentColor: Colors.blue,
+                    ),
+                    const Divider(height: 1, indent: 70),
+                    _buildModernSwitch(
+                      title: 'Ưu đãi & Khuyến mãi',
+                      subtitle: 'Nhận thông tin về các mã giảm giá mới',
+                      value: notifyProvider.promoNotify,
+                      onChanged: (val) => notifyProvider.updateSettings(promoNotify: val),
+                      icon: Icons.discount_rounded,
+                      accentColor: Colors.pink,
+                    ),
+                  ]),
+                  const SizedBox(height: 32),
+                  _buildSettingsGroup([
+                    ListTile(
+                      onTap: () async {
+                        final success = await notifyProvider.sendTestNotification();
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(success ? 'Đã gửi yêu cầu thông báo thử!' : 'Gửi thất bại. Hãy kiểm tra lại.'),
+                              backgroundColor: success ? Colors.green : Colors.red,
+                            ),
+                          );
+                        }
+                      },
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(color: Colors.grey.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+                        child: const Icon(Icons.notifications_active_outlined, color: Colors.grey),
+                      ),
+                      title: const Text('Gửi thông báo thử', style: TextStyle(fontWeight: FontWeight.w700)),
+                      subtitle: const Text('Kiểm tra xem thiết bị có nhận được thông báo không', style: TextStyle(fontSize: 12)),
+                      trailing: const Icon(Icons.chevron_right),
+                    ),
+                  ]),
                   const SizedBox(height: 40),
                   SizedBox(
                     width: double.infinity,
@@ -81,12 +182,52 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                         padding: const EdgeInsets.symmetric(vertical: 18),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                       ),
-                      child: const Text('LƯU CÀI ĐẶT', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
+                      child: const Text('HOÀN TẤT', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
                     ),
                   ),
                 ],
               ),
             ),
+    );
+  }
+
+  Widget _buildPermissionWarning() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 24),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.amber.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.amber.withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.warning_amber_rounded, color: Colors.amber),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Thông báo đang bị tắt',
+                  style: TextStyle(fontWeight: FontWeight.w700, color: Colors.brown),
+                ),
+                const Text(
+                  'Hãy bật quyền thông báo trong cài đặt thiết bị để nhận được lời nhắc.',
+                  style: TextStyle(fontSize: 12, color: Colors.brown),
+                ),
+              ],
+            ),
+          ),
+          TextButton(
+            onPressed: () async {
+              await FirebaseMessaging.instance.requestPermission();
+              _checkPermission();
+            },
+            child: const Text('BẬT', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
     );
   }
 
@@ -141,11 +282,11 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
     );
   }
 
-  Widget _buildTimePickerTile(BuildContext context, {required String timeStr, required VoidCallback onTap}) {
+  Widget _buildTimePickerTile(BuildContext context, {required String title, required String timeStr, required VoidCallback onTap}) {
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
       leading: const SizedBox(width: 44, child: Icon(Icons.access_time_rounded, color: Colors.grey)),
-      title: const Text('Thời gian nhắc', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
       trailing: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
