@@ -12,10 +12,22 @@ class AdminTransactionManagementScreen extends StatefulWidget {
 }
 
 class _AdminTransactionManagementScreenState extends State<AdminTransactionManagementScreen> {
+  late Future<List<Map<String, dynamic>>> _receiptsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshData();
+  }
+
+  void _refreshData() {
+    setState(() {
+      _receiptsFuture = context.read<AdminProvider>().fetchAllReceipts();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    final admin = context.watch<AdminProvider>();
-
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
@@ -24,6 +36,10 @@ class _AdminTransactionManagementScreenState extends State<AdminTransactionManag
         elevation: 0,
         actions: [
           IconButton(
+            icon: const Icon(Icons.refresh_rounded),
+            onPressed: _refreshData,
+          ),
+          IconButton(
             icon: const Icon(Icons.cleaning_services_rounded, color: Colors.redAccent),
             onPressed: () => _confirmCleanup(context),
             tooltip: 'Dọn dẹp hóa đơn lỗi',
@@ -31,19 +47,27 @@ class _AdminTransactionManagementScreenState extends State<AdminTransactionManag
         ],
       ),
       body: FutureBuilder<List<Map<String, dynamic>>>(
-        future: context.read<AdminProvider>().fetchAllReceipts(),
+        future: _receiptsFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+          
+          if (snapshot.hasError) {
+            return Center(child: Text('Lỗi: ${snapshot.error}'));
+          }
+
           final receipts = snapshot.data ?? [];
           if (receipts.isEmpty) return const Center(child: Text('Không có giao dịch nào.'));
 
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: receipts.length,
-            itemBuilder: (context, index) {
-              final r = receipts[index];
-              return _buildReceiptTile(r);
-            },
+          return RefreshIndicator(
+            onRefresh: () async => _refreshData(),
+            child: ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: receipts.length,
+              itemBuilder: (context, index) {
+                final r = receipts[index];
+                return _buildReceiptTile(r);
+              },
+            ),
           );
         },
       ),
@@ -53,7 +77,10 @@ class _AdminTransactionManagementScreenState extends State<AdminTransactionManag
   Widget _buildReceiptTile(Map<String, dynamic> r) {
     final bool isPaid = r['is_paid'] == 1 || r['is_paid'] == true;
     final double total = (r['total'] as num?)?.toDouble() ?? 0.0;
-    final date = r['dayCreated'] != null ? DateFormat('dd/MM/yyyy').format(DateTime.parse(r['dayCreated'])) : '--';
+    
+    // Hỗ trợ cả hai tên trường common: created_at (mặc định Supabase) hoặc dayCreated
+    final rawDate = r['created_at'] ?? r['dayCreated'];
+    final date = rawDate != null ? DateFormat('dd/MM/yyyy HH:mm').format(DateTime.parse(rawDate)) : '--';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -64,13 +91,25 @@ class _AdminTransactionManagementScreenState extends State<AdminTransactionManag
       ),
       child: ListTile(
         title: Text('Hóa đơn #${r['id']}', style: const TextStyle(fontWeight: FontWeight.bold)),
-        subtitle: Text('User ID: ${r['user_id']} • $date'),
+        subtitle: Text('User: ${r['user_id']}\n$date'),
+        isThreeLine: true,
         trailing: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             Text('${NumberFormat.currency(locale: 'vi_VN', symbol: '₫').format(total)}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary)),
-            Text(isPaid ? 'Đã thu' : 'Chưa trả', style: TextStyle(color: isPaid ? Colors.green : Colors.grey, fontSize: 10, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 4),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: isPaid ? Colors.green.withOpacity(0.1) : Colors.grey.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                isPaid ? 'Đã thu' : 'Chờ trả', 
+                style: TextStyle(color: isPaid ? Colors.green : Colors.grey, fontSize: 10, fontWeight: FontWeight.bold)
+              ),
+            ),
           ],
         ),
       ),
@@ -90,8 +129,8 @@ class _AdminTransactionManagementScreenState extends State<AdminTransactionManag
               final success = await context.read<AdminProvider>().cleanupReceipts();
               if (mounted) {
                 Navigator.pop(ctx);
-                setState(() {}); // Refresh list
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(success ? 'Đã dọn dẹp' : 'Thất bại')));
+                _refreshData(); // Gọi lại hàm refresh thay vì setState trống
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(success ? 'Đã dọn dẹp thành công' : 'Thất bại khi dọn dẹp')));
               }
             },
             child: const Text('Xác nhận'),

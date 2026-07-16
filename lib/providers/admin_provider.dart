@@ -24,10 +24,8 @@ class AdminProvider with ChangeNotifier {
     _isLoading = true;
     notifyListeners();
     try {
-      // Backend might need a specific endpoint for list users, 
-      // based on provided info, let's assume /admin/users or similar.
-      // If not specifically provided, we'll try to get all users.
-      final response = await _dio.get('/admin/users'); 
+      // Bỏ dấu / ở đầu để Dio dùng baseUrl chính xác
+      final response = await _dio.get('admin/users'); 
       return List<Map<String, dynamic>>.from(response.data['data'] ?? []);
     } catch (e) {
       debugPrint("Error fetching users: $e");
@@ -79,7 +77,8 @@ class AdminProvider with ChangeNotifier {
     _isLoading = true;
     notifyListeners();
     try {
-      final response = await _dio.get('/receipts/');
+      // Sửa đường dẫn từ '/receipts/' thành 'receipts'
+      final response = await _dio.get('receipts');
       return List<Map<String, dynamic>>.from(response.data['data'] ?? []);
     } catch (e) {
       return [];
@@ -91,7 +90,8 @@ class AdminProvider with ChangeNotifier {
 
   Future<bool> cleanupReceipts() async {
     try {
-      await _dio.delete('/receipts/cleanup');
+      // Sửa đường dẫn từ '/receipts/cleanup' thành 'receipts/cleanup'
+      await _dio.delete('receipts/cleanup');
       return true;
     } catch (e) {
       return false;
@@ -103,8 +103,8 @@ class AdminProvider with ChangeNotifier {
     _isLoading = true;
     notifyListeners();
     try {
-      // API GET /api/v1/decks/ as Admin returns ALL decks
-      final response = await _dio.get('/decks/');
+      // Bỏ dấu / ở đầu
+      final response = await _dio.get('decks');
       final List<dynamic> data = response.data['data'] ?? [];
       return data.map((json) => Deck.fromJson(json)).toList();
     } catch (e) {
