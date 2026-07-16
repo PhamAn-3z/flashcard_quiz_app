@@ -126,11 +126,17 @@ class _AdminTransactionManagementScreenState extends State<AdminTransactionManag
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
           ElevatedButton(
             onPressed: () async {
-              final success = await context.read<AdminProvider>().cleanupReceipts();
+              final messenger = ScaffoldMessenger.of(context);
+              final error = await context.read<AdminProvider>().cleanupReceipts();
               if (mounted) {
                 Navigator.pop(ctx);
-                _refreshData(); // Gọi lại hàm refresh thay vì setState trống
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(success ? 'Đã dọn dẹp thành công' : 'Thất bại khi dọn dẹp')));
+                _refreshData();
+                messenger.showSnackBar(
+                  SnackBar(
+                    content: Text(error == null ? 'Đã dọn dẹp thành công' : 'Thất bại: $error'),
+                    backgroundColor: error == null ? Colors.green : Colors.red,
+                  )
+                );
               }
             },
             child: const Text('Xác nhận'),

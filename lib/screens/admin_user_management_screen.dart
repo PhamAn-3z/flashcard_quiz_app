@@ -163,7 +163,7 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
           children: [
             const SizedBox(height: 4),
             Text(user['email'] ?? ''),
-            if (user['role_id'] == 3)
+            if (user['role_id']?.toString() == '3')
               const Text('ADMIN', style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 10)),
           ],
         ),
@@ -173,7 +173,7 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
   }
 
   void _showUserActions(BuildContext context, Map<String, dynamic> user) {
-    if (user['role_id'] == 3) {
+    if (user['role_id']?.toString() == '3') {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Không thể tác động lên tài khoản Admin khác')));
       return;
     }
@@ -249,9 +249,21 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                   itemCount: history.length,
                   itemBuilder: (context, index) {
                     final item = history[index];
+                    final adminName = item['admin']?['username'] ?? 'Hệ thống';
+                    
+                    String typeText = 'Cảnh cáo';
+                    Color typeColor = Colors.orange;
+                    if (item['penalty_type'] == 'temp_ban') {
+                      typeText = 'Ban tạm thời';
+                      typeColor = Colors.deepOrange;
+                    } else if (item['penalty_type'] == 'perm_ban') {
+                      typeText = 'Ban vĩnh viễn';
+                      typeColor = Colors.red;
+                    }
+
                     return ListTile(
-                      title: Text(item['penalty_type'] == 'warning' ? 'Cảnh cáo' : 'Ban'),
-                      subtitle: Text('Lý do: ${item['reason']}\nNgày: ${item['created_at'].toString().split('T')[0]}'),
+                      title: Text(typeText, style: TextStyle(color: typeColor, fontWeight: FontWeight.bold)),
+                      subtitle: Text('Lý do: ${item['reason']}\nBởi: $adminName\nNgày: ${item['created_at'].toString().split('T')[0]}'),
                       isThreeLine: true,
                     );
                   },
@@ -262,7 +274,7 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
     );
   }
 
-  void _showActionDialog(BuildContext context, String title, Future<bool> Function(String reason) action) {
+  void _showActionDialog(BuildContext context, String title, Future<String?> Function(String reason) action) {
     final controller = TextEditingController();
     showDialog(
       context: context,
@@ -278,12 +290,16 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
           ElevatedButton(
             onPressed: () async {
               if (controller.text.isEmpty) return;
-              final success = await action(controller.text);
+              final messenger = ScaffoldMessenger.of(context);
+              final error = await action(controller.text);
               if (mounted) {
                 Navigator.pop(ctx);
                 _refreshUsers();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(success ? 'Thực hiện thành công' : 'Thất bại'))
+                messenger.showSnackBar(
+                  SnackBar(
+                    content: Text(error == null ? 'Thực hiện thành công' : 'Thất bại: $error'),
+                    backgroundColor: error == null ? Colors.green : Colors.red,
+                  )
                 );
               }
             },

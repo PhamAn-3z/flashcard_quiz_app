@@ -5,7 +5,8 @@ import '../providers/admin_provider.dart';
 import '../utils/constants.dart';
 import 'admin_user_management_screen.dart';
 import 'admin_transaction_management_screen.dart';
-import 'admin_content_management_screen.dart';
+import 'admin_membership_management_screen.dart';
+import 'admin_promo_code_management_screen.dart';
 
 class AdminDashboardScreen extends StatelessWidget {
   const AdminDashboardScreen({super.key});
@@ -111,19 +112,19 @@ class AdminDashboardScreen extends StatelessWidget {
         ),
         _buildMenuCard(
           context,
-          title: 'Nội dung',
-          subtitle: 'Quản lý bộ đề',
-          icon: Icons.library_books_rounded,
-          color: Colors.purple,
-          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminContentManagementScreen())),
+          title: 'Gói thành viên',
+          subtitle: 'Giá & Quyền lợi',
+          icon: Icons.card_membership_rounded,
+          color: Colors.pink,
+          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminMembershipManagementScreen())),
         ),
         _buildMenuCard(
           context,
-          title: 'Thống kê',
-          subtitle: 'Sắp ra mắt...',
-          icon: Icons.analytics_rounded,
+          title: 'Mã khuyến mãi',
+          subtitle: 'Giảm giá & Coupon',
+          icon: Icons.confirmation_number_rounded,
           color: Colors.orange,
-          onTap: () {},
+          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminPromoCodeManagementScreen())),
         ),
       ],
     );
