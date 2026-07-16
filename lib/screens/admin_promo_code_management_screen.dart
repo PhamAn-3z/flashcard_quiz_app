@@ -83,8 +83,9 @@ class _AdminPromoCodeManagementScreenState extends State<AdminPromoCodeManagemen
 
   Widget _buildPromoTile(Map<String, dynamic> promo) {
     final bool isExpired = promo['Expired'] == true;
-    final double sales = (promo['sales'] as num?)?.toDouble() ?? 0.0;
-    final String code = promo['code'] ?? promo['id']?.toString() ?? 'N/A';
+    final double salesFactor = (promo['sales'] as num?)?.toDouble() ?? 1.0;
+    final int discountPercent = (100 - (salesFactor * 100)).toInt();
+    final String code = promo['id']?.toString() ?? 'N/A';
     final rawDate = promo['dayExpired'];
     final date = rawDate != null ? DateFormat('dd/MM/yyyy').format(DateTime.parse(rawDate)) : '--';
 
@@ -105,11 +106,11 @@ class _AdminPromoCodeManagementScreenState extends State<AdminPromoCodeManagemen
           ),
           child: Icon(Icons.confirmation_number_rounded, color: isExpired ? Colors.grey : AppColors.primary),
         ),
-        title: Text(code, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+        title: Text("Mã: $code", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Giảm: ${(sales * 100).toInt()}%'),
+            Text('Giảm: $discountPercent%'),
             Text('Hết hạn: $date', style: TextStyle(color: isExpired ? Colors.red : Colors.grey[600], fontSize: 12)),
           ],
         ),
@@ -146,8 +147,10 @@ class _AdminPromoCodeManagementScreenState extends State<AdminPromoCodeManagemen
 
   void _showPromoCodeDialog(BuildContext context, {Map<String, dynamic>? promo}) {
     final isEditing = promo != null;
-    final codeController = TextEditingController(text: promo?['code'] ?? promo?['id']?.toString() ?? '');
-    final salesController = TextEditingController(text: promo != null ? ((promo['sales'] as num) * 100).toInt().toString() : '');
+    final salesFactor = (promo?['sales'] as num?)?.toDouble() ?? 1.0;
+    final initialDiscount = (100 - (salesFactor * 100)).toInt();
+    
+    final salesController = TextEditingController(text: isEditing ? initialDiscount.toString() : '');
     DateTime selectedDate = promo?['dayExpired'] != null ? DateTime.parse(promo!['dayExpired']) : DateTime.now().add(const Duration(days: 30));
 
     showDialog(
@@ -159,15 +162,20 @@ class _AdminPromoCodeManagementScreenState extends State<AdminPromoCodeManagemen
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                TextField(
-                  controller: codeController,
-                  decoration: const InputDecoration(labelText: 'Mã khuyến mãi', hintText: 'VD: SUMMER2024'),
-                  // enabled: !isEditing, // Thường không nên đổi mã nếu nó là PK
-                ),
+                if (isEditing)
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Mã khuyến mãi (ID)'),
+                    subtitle: Text(promo['id'].toString()),
+                  ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: salesController,
-                  decoration: const InputDecoration(labelText: 'Phần trăm giảm giá (%)', hintText: '0 - 100'),
+                  decoration: const InputDecoration(
+                    labelText: 'Phần trăm giảm giá (%)', 
+                    hintText: 'VD: 20 để giảm 20%',
+                    helperText: 'BE tính: Tổng = Giá * (1 - %giảm/100)',
+                  ),
                   keyboardType: TextInputType.number,
                 ),
                 const SizedBox(height: 12),
@@ -195,15 +203,17 @@ class _AdminPromoCodeManagementScreenState extends State<AdminPromoCodeManagemen
             TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
             ElevatedButton(
               onPressed: () async {
-                final sales = double.tryParse(salesController.text);
-                if (sales == null || sales < 0 || sales > 100) {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Phần trăm không hợp lệ')));
+                final discountPercent = double.tryParse(salesController.text);
+                if (discountPercent == null || discountPercent < 0 || discountPercent > 100) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Phần trăm không hợp lệ (0-100)')));
                   return;
                 }
 
+                // BE logic: price * salesFactor. So 20% discount means factor 0.8
+                final salesFactorToSend = (100.0 - discountPercent) / 100.0;
+
                 final data = {
-                  'code': codeController.text.trim(),
-                  'sales': sales / 100.0,
+                  'sales': salesFactorToSend,
                   'dayExpired': selectedDate.toIso8601String().split('T')[0],
                   'Expired': promo?['Expired'] ?? false,
                 };
