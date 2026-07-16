@@ -28,60 +28,85 @@ class _AdminPromoCodeManagementScreenState extends State<AdminPromoCodeManagemen
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBar(
-        title: const Text('Quản lý Mã khuyến mãi', style: TextStyle(fontWeight: FontWeight.w800)),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded),
-            onPressed: _refreshData,
+      body: CustomScrollView(
+        slivers: [
+          _buildSliverAppBar(),
+          Consumer<AdminProvider>(
+            builder: (context, provider, child) {
+              if (provider.isLoading && provider.promoCodes.isEmpty) {
+                return const SliverFillRemaining(child: Center(child: CircularProgressIndicator()));
+              }
+
+              final promos = provider.promoCodes;
+              if (promos.isEmpty) {
+                return SliverFillRemaining(
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.confirmation_number_rounded, size: 64, color: Colors.grey[300]),
+                        const SizedBox(height: 16),
+                        Text('Chưa có mã khuyến mãi nào', style: TextStyle(color: Colors.grey[600], fontWeight: FontWeight.w500)),
+                      ],
+                    ),
+                  ),
+                );
+              }
+
+              return SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) => _buildPromoCard(promos[index]),
+                    childCount: promos.length,
+                  ),
+                ),
+              );
+            },
           ),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showPromoCodeDialog(context),
-        label: const Text('Thêm mã mới'),
+        label: const Text('Thêm mã mới', style: TextStyle(fontWeight: FontWeight.bold)),
         icon: const Icon(Icons.add_rounded),
         backgroundColor: AppColors.primary,
-      ),
-      body: Consumer<AdminProvider>(
-        builder: (context, provider, child) {
-          if (provider.isLoading && provider.promoCodes.isEmpty) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          final promos = provider.promoCodes;
-          if (promos.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.discount_outlined, size: 64, color: Colors.grey[300]),
-                  const SizedBox(height: 16),
-                  Text('Chưa có mã khuyến mãi nào', style: TextStyle(color: Colors.grey[600])),
-                ],
-              ),
-            );
-          }
-
-          return RefreshIndicator(
-            onRefresh: () async => _refreshData(),
-            child: ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: promos.length,
-              itemBuilder: (context, index) {
-                final promo = promos[index];
-                return _buildPromoTile(promo);
-              },
-            ),
-          );
-        },
+        elevation: 8,
       ),
     );
   }
 
-  Widget _buildPromoTile(Map<String, dynamic> promo) {
+  Widget _buildSliverAppBar() {
+    return SliverAppBar(
+      expandedHeight: 120,
+      floating: false,
+      pinned: true,
+      elevation: 0,
+      backgroundColor: AppColors.primary,
+      flexibleSpace: FlexibleSpaceBar(
+        title: const Text('Mã Khuyến mãi', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+        centerTitle: false,
+        titlePadding: const EdgeInsetsDirectional.only(start: 56, bottom: 16),
+        background: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [AppColors.primary, Color(0xFFB45309)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
+      ),
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.refresh_rounded, color: Colors.white),
+          onPressed: _refreshData,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPromoCard(Map<String, dynamic> promo) {
     final bool isExpired = promo['Expired'] == true;
     final double salesFactor = (promo['sales'] as num?)?.toDouble() ?? 1.0;
     final int discountPercent = (100 - (salesFactor * 100)).toInt();
@@ -90,46 +115,103 @@ class _AdminPromoCodeManagementScreenState extends State<AdminPromoCodeManagemen
     final date = rawDate != null ? DateFormat('dd/MM/yyyy').format(DateTime.parse(rawDate)) : '--';
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10)],
-      ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        leading: Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: (isExpired ? Colors.grey : AppColors.primary).withOpacity(0.1),
-            shape: BoxShape.circle,
-          ),
-          child: Icon(Icons.confirmation_number_rounded, color: isExpired ? Colors.grey : AppColors.primary),
-        ),
-        title: Text("Mã: $code", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Giảm: $discountPercent%'),
-            Text('Hết hạn: $date', style: TextStyle(color: isExpired ? Colors.red : Colors.grey[600], fontSize: 12)),
-          ],
-        ),
-        trailing: PopupMenuButton<String>(
-          onSelected: (value) {
-            if (value == 'edit') {
-              _showPromoCodeDialog(context, promo: promo);
-            } else if (value == 'toggle') {
-              _toggleStatus(promo['id']);
-            }
-          },
-          itemBuilder: (context) => [
-            const PopupMenuItem(value: 'edit', child: Text('Chỉnh sửa')),
-            PopupMenuItem(
-              value: 'toggle', 
-              child: Text(isExpired ? 'Kích hoạt lại' : 'Đánh dấu hết hạn'),
+      margin: const EdgeInsets.only(bottom: 16),
+      child: Stack(
+        children: [
+          // Coupon Design
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 15, offset: const Offset(0, 4))
+              ],
+              border: Border.all(color: isExpired ? Colors.grey.withOpacity(0.2) : AppColors.primary.withOpacity(0.1)),
             ),
-          ],
-        ),
+            child: Row(
+              children: [
+                // Left Part: Discount
+                Column(
+                  children: [
+                    Text(
+                      '$discountPercent%',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w900, 
+                        fontSize: 24, 
+                        color: isExpired ? Colors.grey : AppColors.primary
+                      ),
+                    ),
+                    const Text('OFF', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 10, color: Colors.grey)),
+                  ],
+                ),
+                const SizedBox(width: 20),
+                // Vertical Divider Line
+                Container(width: 1, height: 40, color: Colors.grey[200]),
+                const SizedBox(width: 20),
+                // Right Part: Info
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Mã: $code",
+                        style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: AppColors.textPrimary),
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          const Icon(Icons.event_available_rounded, size: 14, color: Colors.grey),
+                          const SizedBox(width: 4),
+                          Text('Hết hạn: $date', style: TextStyle(color: isExpired ? Colors.red : Colors.grey[600], fontSize: 12, fontWeight: FontWeight.w500)),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                // Actions
+                PopupMenuButton<String>(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  onSelected: (value) {
+                    if (value == 'edit') {
+                      _showPromoCodeDialog(context, promo: promo);
+                    } else if (value == 'toggle') {
+                      _toggleStatus(promo['id']);
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(value: 'edit', child: Text('Chỉnh sửa')),
+                    PopupMenuItem(
+                      value: 'toggle', 
+                      child: Text(isExpired ? 'Kích hoạt lại' : 'Đánh dấu hết hạn'),
+                    ),
+                  ],
+                  icon: const Icon(Icons.more_vert_rounded, color: Colors.grey),
+                ),
+              ],
+            ),
+          ),
+          // Expired Watermark
+          if (isExpired)
+            Positioned(
+              right: 60,
+              top: 10,
+              child: Transform.rotate(
+                angle: -0.2,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.red.withOpacity(0.5), width: 2),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    'HẾT HẠN',
+                    style: TextStyle(color: Colors.red.withOpacity(0.5), fontWeight: FontWeight.w900, fontSize: 10),
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -141,7 +223,7 @@ class _AdminPromoCodeManagementScreenState extends State<AdminPromoCodeManagemen
     if (error == null) {
       _refreshData();
     } else {
-      messenger.showSnackBar(SnackBar(content: Text('Lỗi: $error'), backgroundColor: Colors.red));
+      messenger.showSnackBar(SnackBar(content: Text('Lỗi: $error'), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating));
     }
   }
 
@@ -157,51 +239,78 @@ class _AdminPromoCodeManagementScreenState extends State<AdminPromoCodeManagemen
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
-          title: Text(isEditing ? 'Cập nhật mã' : 'Thêm mã mới'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (isEditing)
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Mã khuyến mãi (ID)'),
-                    subtitle: Text(promo['id'].toString()),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+          title: Text(isEditing ? 'Cập nhật mã' : 'Thêm mã mới', style: const TextStyle(fontWeight: FontWeight.w900)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (isEditing)
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(12)),
+                  child: Row(
+                    children: [
+                      const Text('ID Mã:', style: TextStyle(fontWeight: FontWeight.bold)),
+                      const SizedBox(width: 8),
+                      Text(promo['id'].toString(), style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w900)),
+                    ],
                   ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: salesController,
-                  decoration: const InputDecoration(
-                    labelText: 'Phần trăm giảm giá (%)', 
-                    hintText: 'VD: 20 để giảm 20%',
-                    helperText: 'BE tính: Tổng = Giá * (1 - %giảm/100)',
+                ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: salesController,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  labelText: 'Phần trăm giảm giá (%)', 
+                  hintText: 'VD: 20 để giảm 20%',
+                  prefixIcon: const Icon(Icons.percent_rounded),
+                  filled: true,
+                  fillColor: Colors.grey[50],
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                ),
+              ),
+              const SizedBox(height: 16),
+              InkWell(
+                onTap: () async {
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate: selectedDate,
+                    firstDate: DateTime.now(),
+                    lastDate: DateTime.now().add(const Duration(days: 365)),
+                  );
+                  if (picked != null) {
+                    setDialogState(() => selectedDate = picked);
+                  }
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(color: Colors.grey[50], borderRadius: BorderRadius.circular(16)),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.calendar_month_rounded, color: Colors.grey),
+                      const SizedBox(width: 12),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Ngày hết hạn', style: TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold)),
+                          Text(DateFormat('dd/MM/yyyy').format(selectedDate), style: const TextStyle(fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                      const Spacer(),
+                      const Icon(Icons.edit_rounded, size: 16, color: AppColors.primary),
+                    ],
                   ),
-                  keyboardType: TextInputType.number,
                 ),
-                const SizedBox(height: 12),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Ngày hết hạn'),
-                  subtitle: Text(DateFormat('dd/MM/yyyy').format(selectedDate)),
-                  trailing: const Icon(Icons.calendar_today_rounded),
-                  onTap: () async {
-                    final picked = await showDatePicker(
-                      context: context,
-                      initialDate: selectedDate,
-                      firstDate: DateTime.now(),
-                      lastDate: DateTime.now().add(const Duration(days: 365)),
-                    );
-                    if (picked != null) {
-                      setDialogState(() => selectedDate = picked);
-                    }
-                  },
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('HỦY')),
             ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
               onPressed: () async {
                 final discountPercent = double.tryParse(salesController.text);
                 if (discountPercent == null || discountPercent < 0 || discountPercent > 100) {
@@ -209,9 +318,7 @@ class _AdminPromoCodeManagementScreenState extends State<AdminPromoCodeManagemen
                   return;
                 }
 
-                // BE logic: price * salesFactor. So 20% discount means factor 0.8
                 final salesFactorToSend = (100.0 - discountPercent) / 100.0;
-
                 final data = {
                   'sales': salesFactorToSend,
                   'dayExpired': selectedDate.toIso8601String().split('T')[0],
@@ -232,13 +339,13 @@ class _AdminPromoCodeManagementScreenState extends State<AdminPromoCodeManagemen
                   if (error == null) {
                     Navigator.pop(ctx);
                     _refreshData();
-                    messenger.showSnackBar(SnackBar(content: Text(isEditing ? 'Đã cập nhật' : 'Đã thêm thành công'), backgroundColor: Colors.green));
+                    messenger.showSnackBar(SnackBar(content: Text(isEditing ? 'Đã cập nhật' : 'Đã thêm thành công'), backgroundColor: Colors.green, behavior: SnackBarBehavior.floating));
                   } else {
-                    messenger.showSnackBar(SnackBar(content: Text('Lỗi: $error'), backgroundColor: Colors.red));
+                    messenger.showSnackBar(SnackBar(content: Text('Lỗi: $error'), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating));
                   }
                 }
               },
-              child: Text(isEditing ? 'Cập nhật' : 'Thêm'),
+              child: Text(isEditing ? 'CẬP NHẬT' : 'TẠO MÃ'),
             ),
           ],
         ),
