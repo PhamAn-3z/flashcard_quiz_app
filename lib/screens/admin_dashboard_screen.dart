@@ -188,7 +188,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           ),
                           child: Center(
                             child: Text(
-                              (auth.user?.fullName ?? 'A')[0].toUpperCase(),
+                              (auth.user?.fullName != null && auth.user!.fullName.isNotEmpty) 
+                                  ? auth.user!.fullName[0].toUpperCase() 
+                                  : 'A',
                               style: const TextStyle(
                                 color: Color(0xFF1E40AF),
                                 fontWeight: FontWeight.w900,
