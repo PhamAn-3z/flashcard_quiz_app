@@ -77,7 +77,8 @@ class NotificationProvider with ChangeNotifier {
       final data = response.data['data'] ?? response.data;
       
       if (data != null) {
-        _studyReminderEnabled = data['study_reminder_enabled'] == 1 || data['study_reminder_enabled'] == true;
+        // Đổi 'study_reminder_enabled' thành 'study_reminder' để khớp với Backend
+        _studyReminderEnabled = data['study_reminder'] == 1 || data['study_reminder'] == true;
         _studyReminderTime = data['study_reminder_time'] ?? "20:00";
         _studyReminderDays = List<int>.from(data['study_reminder_days'] ?? [1, 2, 3, 4, 5, 6, 7]);
         _subExpiryNotify = data['sub_expiry_notify'] == 1 || data['sub_expiry_notify'] == true;
