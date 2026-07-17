@@ -33,6 +33,7 @@ class DeckProvider with ChangeNotifier {
   bool _isFetchingExplore = false;
   bool _isFetchingMy = false;
   bool _isFetchingRecent = false;
+  Map<String, dynamic>? _membershipLimit; // Thêm biến lưu cache
   String? _token;
 
   final Dio _dio = Dio(BaseOptions(
@@ -50,6 +51,7 @@ class DeckProvider with ChangeNotifier {
   List<Deck> get exploreDecks => _exploreDecks;
   List<Deck> get myDecks => _myDecks;
   List<dynamic> get recentDecks => _recentDecks;
+  Map<String, dynamic>? get membershipLimit => _membershipLimit; // Thêm getter
   List<Deck> get decks => _token != null ? _myDecks : _publicDecks;
   bool get isLoading => _isLoading;
 
@@ -377,7 +379,9 @@ class DeckProvider with ChangeNotifier {
     try {
       final response = await _dio.get('decks/membership-limit');
       if (response.statusCode == 200 && response.data['success'] == true) {
-        return response.data['data'];
+        _membershipLimit = response.data['data'];
+        notifyListeners();
+        return _membershipLimit;
       }
       return null;
     } catch (e) {

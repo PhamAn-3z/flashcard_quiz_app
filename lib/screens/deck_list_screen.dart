@@ -28,7 +28,9 @@ class _DeckListScreenState extends State<DeckListScreen> {
     super.initState();
     _activeFilter = widget.initialFilter ?? 'Tất cả';
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<DeckProvider>().fetchDecks();
+      final provider = context.read<DeckProvider>();
+      provider.fetchDecks();
+      provider.fetchMembershipLimit(); // Gọi một lần duy nhất khi mở màn hình
     });
   }
 
@@ -114,66 +116,60 @@ class _DeckListScreenState extends State<DeckListScreen> {
   }
 
   Widget _buildMembershipStatusBanner(DeckProvider provider) {
-    return FutureBuilder<Map<String, dynamic>?>(
-      future: provider.fetchMembershipLimit(),
-      builder: (context, snapshot) {
-        if (snapshot.hasData && snapshot.data != null) {
-          final data = snapshot.data!;
-          final int current = data['currentDecks'];
-          final int max = data['maxDecks'];
-          final String rank = data['membershipName'];
-          final bool isUnlimited = max == 0 || max >= 9999;
+    final data = provider.membershipLimit;
+    if (data == null) return const SizedBox.shrink();
 
-          return Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border(bottom: BorderSide(color: Colors.grey.shade200, width: 1)),
+    final int current = data['currentDecks'];
+    final int max = data['maxDecks'];
+    final String rank = data['membershipName'];
+    final bool isUnlimited = max == 0 || max >= 9999;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: Colors.grey.shade200, width: 1)),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.layers_outlined, 
+            size: 16, 
+            color: rank == 'Free' ? Colors.blue : Colors.amber.shade700
+          ),
+          const SizedBox(width: 8),
+          Text(
+            'Hạn mức bộ đề ($rank): ',
+            style: TextStyle(
+              fontSize: 12, 
+              fontWeight: FontWeight.w500, 
+              color: Colors.grey.shade600
             ),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.layers_outlined, 
-                  size: 16, 
-                  color: rank == 'Free' ? Colors.blue : Colors.amber.shade700
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'Hạn mức bộ đề ($rank): ',
-                  style: TextStyle(
-                    fontSize: 12, 
-                    fontWeight: FontWeight.w500, 
-                    color: Colors.grey.shade600
-                  ),
-                ),
-                Text(
-                  isUnlimited ? '$current / ∞' : '$current / $max',
-                  style: TextStyle(
-                    fontSize: 12, 
-                    fontWeight: FontWeight.bold, 
-                    color: (max > 0 && current >= max) ? Colors.redAccent : Colors.black87
-                  ),
-                ),
-                const Spacer(),
-                if (max > 0 && current >= max)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: Colors.redAccent.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: const Text(
-                      'ĐÃ ĐẦY',
-                      style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: Colors.redAccent),
-                    ),
-                  ),
-              ],
+          ),
+          Text(
+            isUnlimited ? '$current / ∞' : '$current / $max',
+            style: TextStyle(
+              fontSize: 12, 
+              fontWeight: FontWeight.bold, 
+              color: (max > 0 && current >= max) ? Colors.redAccent : Colors.black87
             ),
-          );
-        }
-        return const SizedBox.shrink();
-      },
+          ),
+          const Spacer(),
+          if (max > 0 && current >= max)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.redAccent.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: const Text(
+                'ĐÃ ĐẦY',
+                style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: Colors.redAccent),
+              ),
+            ),
+        ],
+      ),
     );
   }
 
@@ -516,7 +512,7 @@ class _AnkiDeckTreeWidgetState extends State<AnkiDeckTreeWidget> {
           children: [
             Text(isOwner 
               ? 'Xóa vĩnh viễn bộ đề "${widget.deck.title}"? Thao tác này không thể hoàn tác.' 
-              : 'Gỡ bộ đề "${widget.deck.title}" khỏi thư viện của bạn?'),
+              : 'Gỡ bộ đề "${widget.deck.title}" khỏi thư viện? Mọi tiến độ học tập và trạng thái yêu thích của bạn đối với bộ đề này sẽ bị xóa.'),
             if (isOwner) ...[
               const SizedBox(height: 12),
               const Text('Nhập "XÓA" để xác nhận:', style: TextStyle(fontSize: 12, color: Colors.redAccent)),
