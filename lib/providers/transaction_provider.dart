@@ -32,7 +32,7 @@ class TransactionProvider with ChangeNotifier {
   // Áp dụng mã giảm giá
   Future<Map<String, dynamic>?> validatePromoCode(String code) async {
     try {
-      final response = await _dio.get('/promo-codes/$code');
+      final response = await _dio.get('promo-codes/$code');
       if (response.statusCode == 200) {
         return response.data['data']; // Trả về thông tin mã giảm giá (id, sales, ...)
       }
@@ -45,7 +45,7 @@ class TransactionProvider with ChangeNotifier {
   // Tạo mã giảm giá mới (đổi từ XP)
   Future<Map<String, dynamic>?> createVoucher(double discountFactor) async {
     try {
-      final response = await _dio.post('/promo-codes', data: {
+      final response = await _dio.post('promo-codes', data: {
         'sales': discountFactor,
         'Expired': false,
         'dayExpired': DateTime.now().add(const Duration(days: 7)).toIso8601String().split('T')[0],
@@ -66,7 +66,7 @@ class TransactionProvider with ChangeNotifier {
     _error = null;
     notifyListeners();
     try {
-      final response = await _dio.get('/memberships');
+      final response = await _dio.get('memberships');
       if (response.statusCode == 200) {
         final List<dynamic> data = response.data['data'] ?? [];
         // Lọc chỉ lấy các gói đang hoạt động (isActive == true)
@@ -86,7 +86,7 @@ class TransactionProvider with ChangeNotifier {
   // Lấy chi tiết một gói (Ví dụ dùng để kiểm tra thông tin trước khi thanh toán)
   Future<MembershipPlan?> fetchMembershipDetail(int id) async {
     try {
-      final response = await _dio.get('/memberships/$id');
+      final response = await _dio.get('memberships/$id');
       if (response.statusCode == 200) {
         return MembershipPlan.fromJson(response.data['data']);
       }
@@ -99,7 +99,7 @@ class TransactionProvider with ChangeNotifier {
   // Quản lý gói (Dành cho Admin - ví dụ)
   Future<bool> toggleMembershipStatus(int id) async {
     try {
-      final response = await _dio.patch('/memberships/$id/toggle');
+      final response = await _dio.patch('memberships/$id/toggle');
       if (response.statusCode == 200) {
         await fetchMembershipPlans(); // Tải lại danh sách
         return true;
@@ -117,7 +117,7 @@ class TransactionProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      final response = await _dio.get('/receipts/user/$userId');
+      final response = await _dio.get('receipts/user/$userId');
       if (response.statusCode == 200) {
         final List<dynamic> data = response.data['data'] ?? [];
         _transactions = data.map((json) {
@@ -190,7 +190,7 @@ class TransactionProvider with ChangeNotifier {
         requestData['promoCodeId'] = promoCodeId;
       }
 
-      final response = await _dio.post('/vnpay/create', data: requestData);
+      final response = await _dio.post('vnpay/create', data: requestData);
 
       if (response.statusCode == 200) {
         final resData = response.data['data'];

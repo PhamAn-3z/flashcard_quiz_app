@@ -6,6 +6,7 @@ import 'main_navigation.dart';
 import 'admin_dashboard_screen.dart';
 import 'register_screen.dart';
 import 'otp_verification_screen.dart';
+import 'forgot_password_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -189,7 +190,12 @@ class _LoginScreenState extends State<LoginScreen> {
                             Align(
                               alignment: Alignment.centerRight,
                               child: TextButton(
-                                onPressed: () {},
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(builder: (_) => const ForgotPasswordScreen()),
+                                  );
+                                },
                                 child: const Text(
                                   'Quên mật khẩu?',
                                   style: TextStyle(

@@ -50,7 +50,7 @@ class AuthProvider with ChangeNotifier {
 
     try {
       final response = await _dio.post(
-        '/auth/login',
+        'auth/login',
         data: {'email': email, 'password': password},
       );
 
@@ -99,7 +99,7 @@ class AuthProvider with ChangeNotifier {
 
     try {
       final response = await _dio.post(
-        '/auth/register',
+        'auth/register',
         data: {
           'email': email,
           'password': password,
@@ -125,7 +125,7 @@ class AuthProvider with ChangeNotifier {
 
     try {
       final response = await _dio.post(
-        '/auth/verify-otp',
+        'auth/verify-otp',
         data: {
           'email': email,
           'otp': otp,
@@ -148,7 +148,7 @@ class AuthProvider with ChangeNotifier {
 
     try {
       final response = await _dio.post(
-        '/auth/resend-otp',
+        'auth/resend-otp',
         data: {
           'email': email,
         },
@@ -164,6 +164,60 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
+  // --- QUÊN MẬT KHẨU ---
+  Future<String?> forgotPassword(String email) async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final response = await _dio.post(
+        'auth/forgot-password',
+        data: {'email': email},
+      );
+
+      _isLoading = false;
+      notifyListeners();
+      if (response.statusCode == 200) return null; // Thành công
+      return response.data['message'] ?? 'Lỗi không xác định';
+    } on DioException catch (e) {
+      _isLoading = false;
+      notifyListeners();
+      return e.response?.data['message'] ?? 'Lỗi kết nối server';
+    }
+  }
+
+  // --- ĐẶT LẠI MẬT KHẨU ---
+  Future<String?> resetPassword({
+    required String email,
+    required String otp,
+    required String newPassword,
+    required String confirmedPassword,
+  }) async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final response = await _dio.post(
+        'auth/reset-password',
+        data: {
+          'email': email,
+          'otp': otp,
+          'new_password': newPassword,
+          'confirmed_password': confirmedPassword,
+        },
+      );
+
+      _isLoading = false;
+      notifyListeners();
+      if (response.statusCode == 200) return null; // Thành công
+      return response.data['message'] ?? 'Lỗi không xác định';
+    } on DioException catch (e) {
+      _isLoading = false;
+      notifyListeners();
+      return e.response?.data['message'] ?? 'Lỗi kết nối server';
+    }
+  }
+
   Future<String?> updateProfile({
     required String fullName,
     required String phoneNumber,
@@ -176,7 +230,7 @@ class AuthProvider with ChangeNotifier {
     try {
       // Gọi đúng endpoint Backend: PUT /api/v1/user/profile
       final response = await _dio.put(
-        '/user/profile',
+        'user/profile',
         data: {
           'full_name': fullName,
           'phone_number': phoneNumber,
@@ -222,7 +276,7 @@ class AuthProvider with ChangeNotifier {
 
   void logout() async {
     try {
-      await _dio.post('/auth/logout');
+      await _dio.post('auth/logout');
     } catch (e) {
       // Ignore error on logout call
     }
@@ -238,7 +292,7 @@ class AuthProvider with ChangeNotifier {
 
   Future<void> _fetchProfile() async {
     try {
-      final response = await _dio.get('/user/profile');
+      final response = await _dio.get('user/profile');
       final data = response.data;
 
       dynamic userData = (data['data'] != null) ? data['data'] : data;
@@ -317,7 +371,7 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      await _dio.put('/stats/${_user!.id}', data: {
+      await _dio.put('stats/${_user!.id}', data: {
         'current_streak': _userStats!.currentStreak,
         'max_streak': _userStats!.maxStreak,
         'total_exp': newTotalExp,
@@ -333,7 +387,7 @@ class AuthProvider with ChangeNotifier {
   Future<void> _fetchStats() async {
     if (_user == null) return;
     try {
-      final response = await _dio.get('/stats/${_user!.id}');
+      final response = await _dio.get('stats/${_user!.id}');
       if (response.statusCode == 200) {
         final data = (response.data['data'] != null) ? response.data['data'] : response.data;
         
@@ -387,7 +441,7 @@ class AuthProvider with ChangeNotifier {
 
     // Sync to BE
     try {
-      await _dio.put('/stats/${_user!.id}', data: {
+      await _dio.put('stats/${_user!.id}', data: {
         'current_streak': newStreak,
         'max_streak': newMaxStreak,
         'total_exp': newTotalExp,
