@@ -21,26 +21,29 @@ class ApiConstants {
   // Tự động xác định Base URL dựa trên môi trường chạy
   // FIX: Đảm bảo baseUrl luôn kết thúc bằng dấu / để tránh dính chuỗi
   static String get baseUrl {
+    // 1. Cấu hình IP (Hãy thay bằng IP máy tính của bạn khi dùng điện thoại thật chung WiFi)
     const String localIp = "192.168.1.10"; 
-    const String tunnelUrl = ""; 
+    
+    // 2. Cấu hình Tunnel (Chỉ dán link vào đây khi dùng điện thoại thật khác mạng/4G)
+    const String tunnelUrl = "https://avenue-outward-scant.ngrok-free.dev"; 
 
-    if (!kIsWeb) {
-      try {
-        if (Platform.isAndroid) {
-          bool useTunnelOnEmulator = false; 
-          if (!useTunnelOnEmulator) {
-             return 'http://10.0.2.2:8080/api/v1/';
-          }
-        }
-      } catch (e) {}
-    }
-
+    // ƯU TIÊN 1: Nếu có Tunnel Url -> Dùng cho điện thoại thật (4G hoặc khác mạng)
     if (tunnelUrl.isNotEmpty && (tunnelUrl.contains(".lhr.life") || tunnelUrl.contains("ngrok"))) {
       return '$tunnelUrl/api/v1/';
     }
 
+    // ƯU TIÊN 2: Nếu là Máy ảo Android (Emulator) -> Luôn dùng 10.0.2.2 để ổn định nhất
+    if (!kIsWeb) {
+      try {
+        if (Platform.isAndroid) {
+          return 'http://10.0.2.2:8080/api/v1/';
+        }
+      } catch (e) {}
+    }
+
     if (kIsWeb) return 'http://localhost:8080/api/v1/';
 
+    // ƯU TIÊN 3: Dùng IP nội bộ cho điện thoại thật chung WiFi
     return 'http://$localIp:8080/api/v1/';
   }
 
@@ -61,7 +64,7 @@ class ApiConstants {
   // Notification Endpoints
   static String get notifications => '${baseUrl}notifications';
   static String get notificationSettings => '${baseUrl}notification-settings';
-  static String get registerFcmToken => '${baseUrl}notifications/register-token';
+  static String get registerFcmToken => '${baseUrl}notifications/fcm-token';
 
   // Deck Endpoints
   static String get decks => '${baseUrl}decks';

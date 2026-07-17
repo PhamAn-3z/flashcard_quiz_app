@@ -210,7 +210,10 @@ class NotificationProvider with ChangeNotifier {
   Future<void> registerFcmToken(String fcmToken) async {
     if (_token == null) return;
     try {
-      await _dio.post('notifications/register-token', data: {'fcm_token': fcmToken});
+      await _dio.post('notifications/fcm-token', data: {
+        'token': fcmToken,
+        'device_type': 'android',
+      });
       debugPrint("FCM Token registered successfully");
     } catch (e) {
       debugPrint("Error registering FCM token: $e");
