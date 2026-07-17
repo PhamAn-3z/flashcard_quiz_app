@@ -175,6 +175,54 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
     }
   }
 
+  Future<void> _handleToggleLike(int commentId) async {
+    // 1. Tìm comment gốc trong flat list để cập nhật UI nhanh
+    final index = _flatCommentsList.indexWhere((c) => c.id == commentId);
+    if (index == -1) return;
+
+    final comment = _flatCommentsList[index];
+    final bool currentlyLiked = comment.isLikedByMe;
+    
+    // 2. Optimistic Update (Cập nhật UI trước khi gọi API)
+    setState(() {
+      _flatCommentsList[index] = comment.copyWith(
+        isLikedByMe: !currentlyLiked,
+        totalLikes: currentlyLiked ? comment.totalLikes - 1 : comment.totalLikes + 1,
+      );
+      _commentTree = _buildFlattenedTree(_flatCommentsList);
+    });
+
+    // 3. Gọi API
+    final result = await context.read<DeckProvider>().toggleCommentLike(commentId);
+
+    // 4. Xử lý kết quả
+    if (result != null) {
+      // Cập nhật lại chính xác từ Server (đảm bảo đồng bộ)
+      setState(() {
+        final newIndex = _flatCommentsList.indexWhere((c) => c.id == commentId);
+        if (newIndex != -1) {
+          _flatCommentsList[newIndex] = _flatCommentsList[newIndex].copyWith(
+            isLikedByMe: result['isLiked'],
+            totalLikes: result['totalLikes'],
+          );
+          _commentTree = _buildFlattenedTree(_flatCommentsList);
+        }
+      });
+    } else if (mounted) {
+      // Rollback nếu lỗi
+      setState(() {
+        final rollbackIndex = _flatCommentsList.indexWhere((c) => c.id == commentId);
+        if (rollbackIndex != -1) {
+          _flatCommentsList[rollbackIndex] = comment; // Trả về trạng thái cũ
+          _commentTree = _buildFlattenedTree(_flatCommentsList);
+        }
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Không thể cập nhật yêu thích. Vui lòng thử lại!'))
+      );
+    }
+  }
+
   void _onReply(int id, String user) {
     setState(() {
       replyingToCommentId = id;
@@ -404,10 +452,7 @@ class _DeckOverviewScreenState extends State<DeckOverviewScreen> {
                     Row(
                       children: [
                         GestureDetector(
-                          onTap: () async {
-                            await context.read<DeckProvider>().likeComment(comment.id);
-                            _fetchAndProcessComments();
-                          },
+                          onTap: () => _handleToggleLike(comment.id),
                           child: Row(
                             children: [
                               Icon(

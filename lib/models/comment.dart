@@ -35,15 +35,20 @@ class Comment {
     );
   }
 
-  Comment copyWith({List<Comment>? replies}) {
+  Comment copyWith({
+    String? content,
+    int? totalLikes,
+    bool? isLikedByMe,
+    List<Comment>? replies,
+  }) {
     return Comment(
       id: id,
-      content: content,
+      content: content ?? this.content,
       createdAt: createdAt,
       username: username,
       avatarUrl: avatarUrl,
-      totalLikes: totalLikes,
-      isLikedByMe: isLikedByMe,
+      totalLikes: totalLikes ?? this.totalLikes,
+      isLikedByMe: isLikedByMe ?? this.isLikedByMe,
       parentId: parentId,
       replies: replies ?? this.replies,
     );

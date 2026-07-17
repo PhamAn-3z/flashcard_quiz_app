@@ -44,6 +44,24 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Future<void> _refreshData() async {
+    final deckProvider = context.read<DeckProvider>();
+    final authProvider = context.read<AuthProvider>();
+    final notificationProvider = context.read<NotificationProvider>();
+
+    try {
+      await Future.wait([
+        deckProvider.fetchExploreDecks(filter: 'not_in_library'),
+        deckProvider.fetchMyDecks(),
+        deckProvider.fetchRecentDecks(),
+        authProvider.refreshProfile(),
+        notificationProvider.fetchNotifications(),
+      ]);
+    } catch (e) {
+      debugPrint("❌ Error refreshing data: $e");
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -88,9 +106,14 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF1F5F9),
-      body: CustomScrollView(
-        physics: const BouncingScrollPhysics(),
-        slivers: [
+      body: RefreshIndicator(
+        onRefresh: _refreshData,
+        color: AppColors.primary,
+        backgroundColor: Colors.white,
+        edgeOffset: 100, // Đẩy vòng xoay xuống dưới AppBar một chút nếu cần
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+          slivers: [
           _buildMaziiHeader(context),
           SliverToBoxAdapter(
             child: Padding(
@@ -120,8 +143,9 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildMaziiHeader(BuildContext context) {
     return SliverAppBar(
@@ -268,15 +292,23 @@ class _HomeScreenState extends State<HomeScreen> {
     final String title = data['title'] ?? deckInfo['title'] ?? 'Bộ đề không tên';
     final String authorName = authorInfo['username'] ?? data['authorName'] ?? "Ẩn danh";
     
-    // Thống kê phiên học
-    final int learned = data['cards_learned'] ?? 0;
-    final int reviewed = data['cards_reviewed'] ?? 0;
+    // Thống kê phiên học (Lấy từ lastSession do Backend trả về)
+    final lastSession = data['lastSession'] ?? {};
+    final int learned = lastSession['learned'] ?? data['cards_learned'] ?? 0;
+    final int reviewed = lastSession['reviewed'] ?? data['cards_reviewed'] ?? 0;
     final int totalInSession = learned + reviewed;
     
-    // Thống kê tổng quan bộ đề để tính progress bar (nếu có)
-    final stats = data['ankiStats'] ?? deckInfo['ankiStats'];
-    final int totalCards = stats?['totalCount'] ?? deckInfo['total_cards'] ?? 10;
-    final progress = totalCards > 0 ? (learned / totalCards).clamp(0.0, 1.0) : 0.0;
+    // Thống kê tổng quan bộ đề để tính progress bar
+    final int totalCards = data['totalCards'] ?? deckInfo['total_cards'] ?? 0;
+    final int newCount = data['newCount'] ?? 0;
+    final int learningCount = data['learningCount'] ?? 0;
+    final int dueCount = data['dueCount'] ?? 0;
+    
+    // Tính số thẻ đã "Mastered" hoặc đã thuộc sơ bộ
+    final int unmastered = newCount + learningCount + dueCount;
+    final int mastered = totalCards > unmastered ? totalCards - unmastered : 0;
+    
+    final progress = totalCards > 0 ? (mastered / totalCards).clamp(0.0, 1.0) : 0.0;
 
     return GestureDetector(
       onTap: () {
@@ -284,7 +316,11 @@ class _HomeScreenState extends State<HomeScreen> {
         if (deckId != null) {
           Navigator.push(context, MaterialPageRoute(builder: (_) => DeckOverviewScreen(
             deckId: deckId, title: title,
-            ankiStats: stats ?? {'newCount': 0, 'learningCount': 0, 'dueCount': 0},
+            ankiStats: {
+              'newCount': newCount,
+              'learningCount': learningCount,
+              'dueCount': dueCount,
+            },
           )));
         }
       },

@@ -127,6 +127,7 @@ class DeckProvider with ChangeNotifier {
         'order': 'desc',
         'filter': filter,
         if (searchTerm != null && searchTerm.isNotEmpty) 'q': searchTerm,
+        't': DateTime.now().millisecondsSinceEpoch, // Thêm timestamp để tránh cache
       });
 
       if (response.statusCode == 200 && response.data['success'] == true) {
@@ -238,12 +239,16 @@ class DeckProvider with ChangeNotifier {
     }
   }
 
-  Future<void> likeComment(int commentId) async {
+  Future<Map<String, dynamic>?> toggleCommentLike(int commentId) async {
     try {
-      await _dio.post('/comments/$commentId/like');
+      final response = await _dio.post('/comments/$commentId/toggle-like');
+      if (response.statusCode == 200 && response.data['success'] == true) {
+        return response.data['data'];
+      }
     } catch (e) {
-      debugPrint('Error liking comment: $e');
+      debugPrint('Error toggling comment like: $e');
     }
+    return null;
   }
 
   Future<bool> deleteComment(int commentId) async {
