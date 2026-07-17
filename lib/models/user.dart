@@ -8,6 +8,7 @@ class User {
   final String? phoneNumber;
   final String roleId;
   final bool isPremium;
+  final String? membershipName;
 
   User({
     required this.id,
@@ -19,6 +20,7 @@ class User {
     this.phoneNumber,
     required this.roleId,
     this.isPremium = false,
+    this.membershipName,
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
@@ -32,6 +34,7 @@ class User {
       phoneNumber: json['phone_number'],
       roleId: (json['role_id'] ?? json['role'] ?? '2').toString(),
       isPremium: json['is_premium'] ?? false,
+      membershipName: json['membership_name'],
     );
   }
 
@@ -46,6 +49,7 @@ class User {
       'phone_number': phoneNumber,
       'role_id': roleId,
       'is_premium': isPremium,
+      'membership_name': membershipName,
     };
   }
 }

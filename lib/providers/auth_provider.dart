@@ -248,6 +248,7 @@ class AuthProvider with ChangeNotifier {
             email: _user!.email,
             roleId: _user!.roleId,
             isPremium: _user!.isPremium,
+            membershipName: _user!.membershipName,
             fullName: fullName,
             phoneNumber: phoneNumber,
             gender: gender ?? _user!.gender,
@@ -339,6 +340,7 @@ class AuthProvider with ChangeNotifier {
         // FIX 3: Khớp với Backend trả về "role_id"
         roleId: (userData['role_id'] ?? userData['role'] ?? 'user').toString(),
         isPremium: userData['is_premium'] == true,
+        membershipName: userData['membership_name'] ?? userData['membershipName'],
         phoneNumber: userData['phone_number'],
         gender: userData['gender'],
         birthDate: userData['birth_date'] ?? userData['date_of_birth'],

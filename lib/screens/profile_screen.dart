@@ -124,7 +124,10 @@ class ProfileScreen extends StatelessWidget {
                           ? Container(
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                               decoration: BoxDecoration(color: Colors.amber.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(20)),
-                              child: const Text('PRO', style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 12)),
+                              child: Text(
+                                (user?.membershipName ?? 'PRO').toUpperCase(), 
+                                style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 12)
+                              ),
                             )
                           : null,
                       onTap: () {

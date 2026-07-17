@@ -50,7 +50,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
               padding: const EdgeInsets.all(20),
               child: Column(
                 children: [
-                  if (isUserPremium) _buildAlreadyPremiumCard(),
+                  if (isUserPremium) _buildAlreadyPremiumCard(authProvider.user?.membershipName),
                   if (!isUserPremium) _buildHeroSection(),
                   const SizedBox(height: 32),
                   _buildBenefitSection(),
@@ -85,7 +85,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
     );
   }
 
-  Widget _buildAlreadyPremiumCard() {
+  Widget _buildAlreadyPremiumCard(String? rank) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(24),
@@ -97,17 +97,17 @@ class _MembershipScreenState extends State<MembershipScreen> {
         ),
         borderRadius: BorderRadius.circular(32),
       ),
-      child: const Column(
+      child: Column(
         children: [
-          Icon(Icons.check_circle_rounded, color: AppColors.accent, size: 60),
-          SizedBox(height: 16),
+          const Icon(Icons.check_circle_rounded, color: AppColors.accent, size: 60),
+          const SizedBox(height: 16),
           Text(
-            'Bạn đang là thành viên PRO',
+            'Bạn đang là thành viên ${rank?.toUpperCase() ?? 'PRO'}',
             textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900),
+            style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900),
           ),
-          SizedBox(height: 8),
-          Text(
+          const SizedBox(height: 8),
+          const Text(
             'Tận hưởng toàn bộ tính năng cao cấp mà không giới hạn.',
             textAlign: TextAlign.center,
             style: TextStyle(color: Colors.white70, fontSize: 13),
@@ -185,10 +185,9 @@ class _MembershipScreenState extends State<MembershipScreen> {
   Widget _buildBenefitSection() {
     return Column(
       children: [
-        _buildBenefitItem(Icons.all_inclusive_rounded, 'Flashcards không giới hạn', 'Tạo bao nhiêu bộ thẻ tùy thích'),
-        _buildBenefitItem(Icons.block_rounded, 'Không quảng cáo', 'Trải nghiệm học tập liền mạch'),
-        _buildBenefitItem(Icons.offline_bolt_rounded, 'Chế độ ngoại tuyến', 'Học mọi lúc mọi nơi không cần mạng'),
-        _buildBenefitItem(Icons.psychology_rounded, 'AI Tutor cá nhân', 'Phân tích lỗi sai và gợi ý bài học'),
+        _buildBenefitItem(Icons.all_inclusive_rounded, 'Mở khóa hạn mức bộ đề', 'Tạo bộ đề không giới hạn (Dành cho PRO & PREMIUM)'),
+        _buildBenefitItem(Icons.view_column_rounded, 'Thêm nhóm dữ liệu (Ma trận)', 'Tạo bộ thẻ nhiều cột, đa chiều (Dành cho PRO & PREMIUM)'),
+        _buildBenefitItem(Icons.perm_media_rounded, 'Hỗ trợ Multimedia', 'Thêm hình ảnh & thu âm trực tiếp vào thẻ (Chỉ dành cho PREMIUM)'),
       ],
     );
   }
